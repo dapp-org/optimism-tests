@@ -1,3 +1,6 @@
 [submodule "contracts-v2"]
 	path = contracts-v2
 	url = git@github.com:ethereum-optimism/contracts-v2.git
+[submodule "lib/ds-test"]
+	path = lib/ds-test
+	url = https://github.com/dapphub/ds-test
