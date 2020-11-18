@@ -1,14 +1,14 @@
 {
     "dapptools": {
-        "branch": "master",
+        "branch": "gethcompliance",
         "description": "Dapp, Seth, Hevm, and more",
         "homepage": "https://dapp.tools",
         "owner": "dapphub",
         "repo": "dapptools",
-        "rev": "a001d0e6ca08efbd5f19a5b8ede7b85e6c8c2451",
-        "sha256": "0v5zk6y4jk7srqfxcn38w75zc06im051zsjzhf43crbwacpv3rda",
+        "rev": "ff02d34e9bf9dd320811dcd7eec2fe2f737c8308",
+        "sha256": "126h4n33r0w4nxfbm1vcg94sdmkkgwjrhjvls6xnvvywazqv9jli",
         "type": "tarball",
-        "url": "https://github.com/dapphub/dapptools/archive/a001d0e6ca08efbd5f19a5b8ede7b85e6c8c2451.tar.gz",
+        "url": "https://github.com/dapphub/dapptools/archive/ff02d34e9bf9dd320811dcd7eec2fe2f737c8308.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
