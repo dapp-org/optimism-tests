@@ -94,6 +94,8 @@ contract StateTransiti1onerTest is DSTest {
         stateMgr.commitContractStorage(0x06a506A506a506A506a506a506A506A506A506A5,
                                        bytes32(0));
         stateMgr.commitAccount(0x06a506A506a506A506a506a506A506A506A506A5);
+        stateMgr.testAndSetContractStorageLoaded(0x06a506A506a506A506a506a506A506A506A506A5,
+                                                 bytes32(0));
         executionMgr.run(
           Lib_OVMCodec.Transaction(
             block.timestamp
