@@ -142,10 +142,57 @@ contract StateTransiti1onerTest is DSTest {
                                   0x581f1fa4a220851d3821909b68a38c9fed9094bb2830094d847ed4c8fb30b34d,
                                   0x657f781894e53e78fb97f1edd6376c99fba7f86c7a674e48b7edc18222c1c3ea);
     }
-    
+
     function testEOA(bytes memory a) public {
         spinupEOA();
         executionMgr.ovmCALL(gasleft(), 0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374, a);
+    }
+
+
+    function test_initcode_revert() public {
+        executionMgr.run(
+            Lib_OVMCodec.Transaction(
+                block.timestamp,
+                block.number,
+                Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE,
+                address(this),
+                address(this), // target
+                21000,         // gaslimit
+                abi.encodeWithSignature("ovmCREATE(bytes)", type(Broken).creationCode)
+            ),
+            address(stateMgr)
+        );
+    }
+}
+
+contract Broken {
+    constructor(address exec) {
+        (bool res, bytes memory data) = exec.call(
+            abi.encodeWithSignature("ovmSLOAD(bytes32)", 666)
+        );
+
+        if (!res) {
+            (uint flag,,,) = decodeRevertData(data);
+            if (iOVM_ExecutionManager.RevertFlag(flag)
+                    == iOVM_ExecutionManager.RevertFlag.INVALID_STATE_ACCESS) {
+                while (true) {
+                    assembly { pop(0) } // force a revert by underflowing the stack
+                }
+            }
+
+        }
+    }
+
+    function decodeRevertData(
+        bytes memory revertdata
+    )
+        internal pure
+        returns (uint256 flag, uint256 nuisanceGasLeft, uint256 ovmGasRefund, bytes memory data)
+    {
+        if (revertdata.length == 0) {
+            return (0, 0, 0, bytes(''));
+        }
+        return abi.decode(revertdata, (uint256, uint256, uint256, bytes));
     }
 }
 
