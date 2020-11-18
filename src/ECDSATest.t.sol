@@ -34,9 +34,12 @@ import { OVM_ECDSAContractAccount } from "../contracts-v2/contracts/optimistic-e
 //      L1TOL2_QUEUE
 //  }
 
+interface Hevm {
+    function warp(uint256) external;
+    function store(address,bytes32,bytes32) external;
+}
 
 contract StateTransiti1onerTest is DSTest {
-
     bytes constant internal RLP_NULL_BYTES = hex'80';
     bytes constant internal NULL_BYTES = bytes('');
     bytes32 constant internal NULL_BYTES32 = bytes32('');
@@ -45,7 +48,7 @@ contract StateTransiti1onerTest is DSTest {
 
 
 
-
+    Hevm hevm;
     Lib_AddressManager addressManager;
 
     Lib_AddressResolver resolver;
@@ -56,6 +59,7 @@ contract StateTransiti1onerTest is DSTest {
     OVM_SafetyChecker safetyChecker;
 
     function setUp() public {
+        hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         addressManager = new Lib_AddressManager();
         stateMgrFactory = new OVM_StateManagerFactory();
         safetyChecker = new OVM_SafetyChecker();
@@ -128,7 +132,21 @@ contract StateTransiti1onerTest is DSTest {
                                              hex"f85f800180946888c043d3c793764a012b209e51ba766877f553808082036ca02a1f1c8ce0ccce461a8177117ff655ffd3e948dfecf4a27005ba0a74deab462da0347a6b843050f04ead7f8e7e46aaf29a1dde97dad0a3f42496df69b326f7e309", false);
     }
 
-
+    function spinupEOA() public {
+        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
+        stateMgr.putEmptyAccount(0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374);
+        stateMgr.testAndSetAccountChanged(0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374);
+        executionMgr.ovmCREATEEOA(
+                                  0x03ab237a027f9be39cae8f0b7ba5c0c5fb9ddaac373371c1283eb972cfbb5db1,
+                                  0,
+                                  0x581f1fa4a220851d3821909b68a38c9fed9094bb2830094d847ed4c8fb30b34d,
+                                  0x657f781894e53e78fb97f1edd6376c99fba7f86c7a674e48b7edc18222c1c3ea);
+    }
+    
+    function testEOA(bytes memory a) public {
+        spinupEOA();
+        executionMgr.ovmCALL(gasleft(), 0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374, a);
+    }
 }
 
 
