@@ -45,21 +45,21 @@ contract StateTransiti1onerTest is DSTest {
 
 
 
-    
+
     Lib_AddressManager addressManager;
-    
+
     Lib_AddressResolver resolver;
     OVM_StateManagerFactory stateMgrFactory;
     OVM_StateTransitioner trans;
     OVM_ExecutionManager executionMgr;
     OVM_StateManager stateMgr;
     OVM_SafetyChecker safetyChecker;
-    
+
     function setUp() public {
         addressManager = new Lib_AddressManager();
         stateMgrFactory = new OVM_StateManagerFactory();
         safetyChecker = new OVM_SafetyChecker();
-        
+
         addressManager.setAddress("OVM_StateManagerFactory", address(stateMgrFactory));
         addressManager.setAddress("OVM_SafetyChecker", address(safetyChecker));
         executionMgr = new OVM_ExecutionManager(
@@ -72,11 +72,7 @@ contract StateTransiti1onerTest is DSTest {
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
     }
 
-    function test_sanity() public {
-        assertEq(trans.getPreStateRoot(), 0x0);
-    }
-
-    function test_run_exe() public {
+    function test_trivial_run_exe() public {
         // put gas metadata address into state
         stateMgr.putAccount(0x06a506A506a506A506a506a506A506A506A506A5,
                             Lib_OVMCodec.Account(
@@ -102,35 +98,56 @@ contract StateTransiti1onerTest is DSTest {
             ,block.number
             ,Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE
             ,address(this)
-            ,address(0x0) // target
-            ,21000 // gaslimit
-            ,bytes("") // empty data
+            ,address(0) // target
+            ,21000       // gaslimit
+            ,bytes("")  // empty data
           ),
           address(stateMgr)
         );
-            
     }
 
-                         
+    function liftToL2(address acc) public {
+        putAccountAt(acc, acc);
+    }
+
+    function putAccountAt(address from, address to) public {
+        stateMgr.putAccount(from,
+                            Lib_OVMCodec.Account(
+                                                 0,
+                                                 0,
+                                                 KECCAK256_RLP_NULL_BYTES,
+                                                 KECCAK256_NULL_BYTES,
+                                                 to,
+                                                 false)
+                            );
+
+    }
+
+    function test_decodeTx() public {
+        Lib_OVMCodec.decodeEIP155Transaction(
+                                             hex"f85f800180946888c043d3c793764a012b209e51ba766877f553808082036ca02a1f1c8ce0ccce461a8177117ff655ffd3e948dfecf4a27005ba0a74deab462da0347a6b843050f04ead7f8e7e46aaf29a1dde97dad0a3f42496df69b326f7e309", false);
+    }
+
+
 }
 
 
-contract BondManagerTest is DSTest {
-    Lib_AddressManager manager;
-    Lib_AddressResolver resolver;
-    OVM_BondManager mgr;
+/* contract BondManagerTest is DSTest { */
+/*     Lib_AddressManager manager; */
+/*     Lib_AddressResolver resolver; */
+/*     OVM_BondManager mgr; */
 
-    function setUp() public {
-        manager = new Lib_AddressManager();
-        mgr = new OVM_BondManager(ERC20(address(0x00)), address(manager));
-    }
-    function test_a() public {
-        assertEq(address(mgr.token()), address(0x00));
-    }
-    function prove_a() public {
-        assertEq(address(mgr.token()), address(0x00));
-    }
-}
+/*     function setUp() public { */
+/*         manager = new Lib_AddressManager(); */
+/*         mgr = new OVM_BondManager(ERC20(address(0x00)), address(manager)); */
+/*     } */
+/*     function test_a() public { */
+/*         assertEq(address(mgr.token()), address(0x00)); */
+/*     } */
+/*     function prove_a() public { */
+/*         assertEq(address(mgr.token()), address(0x00)); */
+/*     } */
+/* } */
 
 // some loose ideas here... this might be junk.
 /* contract MerkleTreeTest is DSTest, Lib_MerkleTree { */
@@ -145,5 +162,3 @@ contract BondManagerTest is DSTest {
 /*         } */
 /*     } */
 /* } */
-
-

@@ -1,0 +1,8 @@
+set -e
+set -x
+mkdir secrets
+dapp --nix-run go-ethereum geth account new --keystore ./secrets --password optimistic
+read '-d ' -r FROM <<<$(ethsign ls --key-store secrets)
+TX=$(ethsign tx --to $1 --from $FROM --chain-id 420 --gas-price 1 --passphrase-file optimistic --key-store secrets --nonce 0 --value 0 --gas-limit 0)
+rm -rf secrets
+echo $TX
