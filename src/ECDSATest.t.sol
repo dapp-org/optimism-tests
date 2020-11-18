@@ -36,6 +36,16 @@ import { OVM_ECDSAContractAccount } from "../contracts-v2/contracts/optimistic-e
 
 
 contract StateTransiti1onerTest is DSTest {
+
+    bytes constant internal RLP_NULL_BYTES = hex'80';
+    bytes constant internal NULL_BYTES = bytes('');
+    bytes32 constant internal NULL_BYTES32 = bytes32('');
+    bytes32 constant internal KECCAK256_RLP_NULL_BYTES = keccak256(RLP_NULL_BYTES);
+    bytes32 constant internal KECCAK256_NULL_BYTES = keccak256(NULL_BYTES);
+
+
+
+    
     Lib_AddressManager addressManager;
     
     Lib_AddressResolver resolver;
@@ -58,6 +68,7 @@ contract StateTransiti1onerTest is DSTest {
                              iOVM_ExecutionManager.GlobalContext(420) /* blaze it */
                              );
         stateMgr = OVM_StateManager(address(stateMgrFactory.create(address(this))));
+        stateMgr.setExecutionManager(address(executionMgr));
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
     }
 
@@ -66,6 +77,23 @@ contract StateTransiti1onerTest is DSTest {
     }
 
     function test_run_exe() public {
+        // put gas metadata address into state
+        stateMgr.putAccount(0x06a506A506a506A506a506a506A506A506A506A5,
+                            Lib_OVMCodec.Account(
+                                                 0,
+                                                 0,
+                                                 KECCAK256_RLP_NULL_BYTES,
+                                                 KECCAK256_NULL_BYTES,
+                                                 address(0),
+                                                 false)
+                            );
+        stateMgr.putContractStorage(0x06a506A506a506A506a506a506A506A506A506A5,
+                                    bytes32(0), //bytes32(iOVM_ExecutionManager.GasMetadataKey.CURRENT_EPOCH_START_TIMESTAMP),
+                                    bytes32(uint(1))
+                            );
+        stateMgr.commitContractStorage(0x06a506A506a506A506a506a506A506A506A506A5,
+                                       bytes32(0));
+        stateMgr.commitAccount(0x06a506A506a506A506a506a506A506A506A506A5);
         executionMgr.run(
           Lib_OVMCodec.Transaction(
             block.timestamp
