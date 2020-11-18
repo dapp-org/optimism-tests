@@ -1,16 +1,38 @@
+pragma experimental ABIEncoderV2;
 import { OVM_BondManager } from "../contracts-v2/contracts/optimistic-ethereum/OVM/verification/OVM_BondManager.sol";
 
 import { OVM_StateTransitioner } from "../contracts-v2/contracts/optimistic-ethereum/OVM/verification/OVM_StateTransitioner.sol";
 import { OVM_StateManagerFactory } from "../contracts-v2/contracts/optimistic-ethereum/OVM/execution/OVM_StateManagerFactory.sol";
+import { OVM_StateManager } from "../contracts-v2/contracts/optimistic-ethereum/OVM/execution/OVM_StateManager.sol";
+import { OVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ethereum/OVM/execution/OVM_ExecutionManager.sol";
+import { iOVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/execution/iOVM_ExecutionManager.sol";
+import { OVM_SafetyChecker } from "../contracts-v2/contracts/optimistic-ethereum/OVM/execution/OVM_SafetyChecker.sol";
 
 import {Lib_AddressResolver} from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressResolver.sol";
 import {Lib_AddressManager} from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
+import {Lib_OVMCodec} from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
 
 
 import{ERC20} from "../contracts-v2/contracts/optimistic-ethereum/iOVM/verification/iOVM_BondManager.sol";
 import {DSTest} from "ds-test/test.sol";
 
 import { OVM_ProxyEOA } from "../contracts-v2/contracts/optimistic-ethereum/OVM/accounts/OVM_ProxyEOA.sol";
+import { OVM_ECDSAContractAccount } from "../contracts-v2/contracts/optimistic-ethereum/OVM/accounts/OVM_ECDSAContractAccount.sol";
+
+// Format of tx sent to `executionMgr.run
+// struct Transaction {
+//     uint256 timestamp;
+//     uint256 blockNumber;
+//     QueueOrigin l1QueueOrigin;
+//     address l1TxOrigin;
+//     address entrypoint;
+//     uint256 gasLimit;
+//     bytes data;
+// } where
+//  enum QueueOrigin {
+//      SEQUENCER_QUEUE,
+//      L1TOL2_QUEUE
+//  }
 
 
 contract StateTransiti1onerTest is DSTest {
@@ -19,17 +41,47 @@ contract StateTransiti1onerTest is DSTest {
     Lib_AddressResolver resolver;
     OVM_StateManagerFactory stateMgrFactory;
     OVM_StateTransitioner trans;
+    OVM_ExecutionManager executionMgr;
+    OVM_StateManager stateMgr;
+    OVM_SafetyChecker safetyChecker;
     
     function setUp() public {
         addressManager = new Lib_AddressManager();
         stateMgrFactory = new OVM_StateManagerFactory();
+        safetyChecker = new OVM_SafetyChecker();
+        
         addressManager.setAddress("OVM_StateManagerFactory", address(stateMgrFactory));
+        addressManager.setAddress("OVM_SafetyChecker", address(safetyChecker));
+        executionMgr = new OVM_ExecutionManager(
+                             address(addressManager),
+                             iOVM_ExecutionManager.GasMeterConfig(0,0,0,0),
+                             iOVM_ExecutionManager.GlobalContext(420) /* blaze it */
+                             );
+        stateMgr = OVM_StateManager(address(stateMgrFactory.create(address(this))));
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
     }
 
     function test_sanity() public {
         assertEq(trans.getPreStateRoot(), 0x0);
     }
+
+    function test_run_exe() public {
+        executionMgr.run(
+          Lib_OVMCodec.Transaction(
+            block.timestamp
+            ,block.number
+            ,Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE
+            ,address(this)
+            ,address(0x0) // target
+            ,21000 // gaslimit
+            ,bytes("") // empty data
+          ),
+          address(stateMgr)
+        );
+            
+    }
+
+                         
 }
 
 
@@ -49,7 +101,6 @@ contract BondManagerTest is DSTest {
         assertEq(address(mgr.token()), address(0x00));
     }
 }
-
 
 // some loose ideas here... this might be junk.
 /* contract MerkleTreeTest is DSTest, Lib_MerkleTree { */
