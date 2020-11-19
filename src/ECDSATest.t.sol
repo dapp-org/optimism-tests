@@ -111,7 +111,7 @@ contract StateTransiti1onerTest is DSTest {
     }
 
 
-    function test_initcode_revert() public {
+    function test_create_contract() public {
         address target = address(new makeBroken());
         liftToL2(address(target));
         stateMgr.putEmptyAccount(0x42d454D12b11EdfB2e5cb8c90e6809a4E4925Ee5);
@@ -198,35 +198,19 @@ contract StateTransiti1onerTest is DSTest {
     }
 }
 
-contract makeBroken {
+contract makeEmpty {
     constructor() {}
 
     function build() public {
         Lib_SafeExecutionManagerWrapper.safeCREATE(
-            gasleft(), type(Broken).creationCode
+            gasleft(), type(Empty).creationCode
         );
     }
 }
 
-contract Broken {
-    constructor() {
-        //(bool res, bytes memory data) = address(msg.sender).call{gas: uint48(-1)}(
-            //abi.encodeWithSignature(
-                //"ovmCALL(uint,address,bytes)", uint48(-1), address(0x420), bytes("")
-            //)
-        //);
-
-        //if (!res) {
-            //(uint flag,,,) = Utils.decodeRevertData(data);
-            //if (iOVM_ExecutionManager.RevertFlag(flag)
-                    //== iOVM_ExecutionManager.RevertFlag.INVALID_STATE_ACCESS) {
-                //while (true) {
-                    //assembly { pop(0) } // force a revert by underflowing the stack
-                //}
-            //}
-
-        //}
-    }
+contract Empty {
+    constructor() payable {}
+    fallback() external payable {}
 }
 
 library Utils {
