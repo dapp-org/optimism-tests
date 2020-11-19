@@ -6,6 +6,7 @@ import { TestERC20 } from "../contracts-v2/contracts/test-helpers/TestERC20.sol"
 import { Lib_AddressResolver } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressResolver.sol";
 import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
 import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
+import { Lib_RLPWriter } from "../contracts-v2/contracts/optimistic-ethereum/libraries/rlp/Lib_RLPWriter.sol";
 import { Lib_SafeExecutionManagerWrapper } from "../contracts-v2/contracts/optimistic-ethereum/libraries/wrappers/Lib_SafeExecutionManagerWrapper.sol";
 
 import { OVM_StateTransitioner } from "../contracts-v2/contracts/optimistic-ethereum/OVM/verification/OVM_StateTransitioner.sol";
@@ -204,6 +205,52 @@ contract StateTransiti1onerTest is DSTest {
         stateMgr.testAndSetAccountLoaded(to);
     }
 }
+
+// It is not uncommon for calls to the RLPWriter to fail with a
+// division by zero error due to memory handling in assembly.
+// The deployment of `implementation` should be unrelated to the
+// behaviour of the RLPWriter, but removing it makes the encoding
+// succeed without problems.
+
+// This indicates that there is likely a problem with the assembly
+// in RLPWriter leading to memory corruption.
+contract TestRLP is DSTest {
+    function setUp() public {
+    }
+
+    // a couple of concrete examples:
+    function testRLPWriterAddressConcrete() public {
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
+        bytes memory outOne = Lib_RLPWriter.writeAddress(address(0));
+        bytes memory outTwo = Lib_RLPWriter.writeAddress(0x00000000000000000000000000000000000ffffE);
+    }
+
+    // Fuzz test; use these to discover tons of examples
+    function test_RLPWriterBytes(bytes memory input) public {
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
+        bytes memory out = Lib_RLPWriter.writeBytes(input);
+    }
+    function test_RLPWriterAddress(address input) public {
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
+        bytes memory out = Lib_RLPWriter.writeAddress(input);
+    }
+    function test_RLPWriterString(string memory input) public {
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
+        bytes memory out = Lib_RLPWriter.writeString(input);
+    }
+    function test_rand_RLPencodeEIP155(uint nonce, uint glimit, uint gprice, address to, uint val, bytes memory data, uint chainid, bool tf) public {
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(Lib_OVMCodec.EIP155Transaction(nonce,
+                                                                                                     glimit,
+                                                                                                     gprice,
+                                                                                                     to,
+                                                                                                     val,
+                                                                                                     data,
+                                                                                                     chainid),
+                                                                      tf);
+    }
+}
+
 
 contract MakeEmpty {
     constructor() {}
