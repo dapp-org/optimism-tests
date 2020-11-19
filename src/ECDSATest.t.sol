@@ -1,23 +1,23 @@
 pragma experimental ABIEncoderV2;
-import { OVM_BondManager } from "../contracts-v2/contracts/optimistic-ethereum/OVM/verification/OVM_BondManager.sol";
+
+import { iOVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/execution/iOVM_ExecutionManager.sol";
+import{ ERC20 } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/verification/iOVM_BondManager.sol";
+
+import { Lib_AddressResolver } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressResolver.sol";
+import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
+import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
+import { Lib_SafeExecutionManagerWrapper } from "../contracts-v2/contracts/optimistic-ethereum/libraries/wrappers/Lib_SafeExecutionManagerWrapper.sol";
 
 import { OVM_StateTransitioner } from "../contracts-v2/contracts/optimistic-ethereum/OVM/verification/OVM_StateTransitioner.sol";
 import { OVM_StateManagerFactory } from "../contracts-v2/contracts/optimistic-ethereum/OVM/execution/OVM_StateManagerFactory.sol";
 import { OVM_StateManager } from "../contracts-v2/contracts/optimistic-ethereum/OVM/execution/OVM_StateManager.sol";
 import { OVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ethereum/OVM/execution/OVM_ExecutionManager.sol";
-import { iOVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/execution/iOVM_ExecutionManager.sol";
 import { OVM_SafetyChecker } from "../contracts-v2/contracts/optimistic-ethereum/OVM/execution/OVM_SafetyChecker.sol";
-
-import { Lib_AddressResolver } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressResolver.sol";
-import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
-import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
-
-
-import{ ERC20 } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/verification/iOVM_BondManager.sol";
-import { DSTest } from "ds-test/test.sol";
 
 import { OVM_ProxyEOA } from "../contracts-v2/contracts/optimistic-ethereum/OVM/accounts/OVM_ProxyEOA.sol";
 import { OVM_ECDSAContractAccount } from "../contracts-v2/contracts/optimistic-ethereum/OVM/accounts/OVM_ECDSAContractAccount.sol";
+
+import { DSTest } from "ds-test/test.sol";
 
 // Format of tx sent to `executionMgr.run
 // struct Transaction {
@@ -112,15 +112,20 @@ contract StateTransiti1onerTest is DSTest {
 
 
     function test_initcode_revert() public {
+        bytes memory txdata = abi.encodeWithSignature(
+            "ovmCREATE(bytes)",
+            abi.encodePacked(type(Broken).creationCode, address(executionMgr))
+        );
+        liftToL2(address(executionMgr));
         executionMgr.run(
             Lib_OVMCodec.Transaction({
                 timestamp:     block.timestamp,
                 blockNumber:   block.number,
                 l1QueueOrigin: Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE,
                 l1TxOrigin:    address(this),
-                entrypoint:    address(0),
+                entrypoint:    address(executionMgr),
                 gasLimit:      21000,
-                data:          abi.encodeWithSignature("ovmCREATE(bytes)", type(Broken).creationCode)
+                data:          txdata
             }),
             address(stateMgr)
         );
@@ -189,6 +194,10 @@ contract StateTransiti1onerTest is DSTest {
             })
         );
     }
+}
+
+contract makeBroken {
+    constructor() {}
 }
 
 contract Broken {
