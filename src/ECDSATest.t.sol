@@ -66,81 +66,45 @@ contract StateTransiti1onerTest is DSTest {
 
         addressManager.setAddress("OVM_StateManagerFactory", address(stateMgrFactory));
         addressManager.setAddress("OVM_SafetyChecker", address(safetyChecker));
+
         executionMgr = new OVM_ExecutionManager(
-                             address(addressManager),
-                             iOVM_ExecutionManager.GasMeterConfig(0,0,0,0),
-                             iOVM_ExecutionManager.GlobalContext(420) /* blaze it */
-                             );
+            address(addressManager),
+            iOVM_ExecutionManager.GasMeterConfig(
+                0,        // minTransactionGasLimit
+                uint(-1), // maxTransactionGasLimit
+                uint(-1), // maxGasPerQueuePerEpoch
+                60        // secondsPerEpoch
+            ),
+            iOVM_ExecutionManager.GlobalContext(420) /* blaze it */
+        );
+
         stateMgr = OVM_StateManager(address(stateMgrFactory.create(address(this))));
+        writeGasMetaData();
+
         stateMgr.setExecutionManager(address(executionMgr));
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
     }
 
     function test_trivial_run_exe() public {
-        // put gas metadata address into state
-        stateMgr.putAccount(0x06a506A506a506A506a506a506A506A506A506A5,
-                            Lib_OVMCodec.Account(
-                                                 0,
-                                                 0,
-                                                 KECCAK256_RLP_NULL_BYTES,
-                                                 KECCAK256_NULL_BYTES,
-                                                 address(0),
-                                                 false)
-                            );
-        stateMgr.putContractStorage(0x06a506A506a506A506a506a506A506A506A506A5,
-                                    bytes32(0), //bytes32(iOVM_ExecutionManager.GasMetadataKey.CURRENT_EPOCH_START_TIMESTAMP),
-                                    bytes32(uint(1))
-                            );
-        stateMgr.commitContractStorage(0x06a506A506a506A506a506a506A506A506A506A5,
-                                       bytes32(0));
-        stateMgr.commitAccount(0x06a506A506a506A506a506a506A506A506A506A5);
-        stateMgr.testAndSetContractStorageLoaded(0x06a506A506a506A506a506a506A506A506A506A5,
-                                                 bytes32(0));
         executionMgr.run(
-          Lib_OVMCodec.Transaction(
-            block.timestamp
-            ,block.number
-            ,Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE
-            ,address(this)
-            ,address(0) // target
-            ,21000       // gaslimit
-            ,bytes("")  // empty data
-          ),
-          address(stateMgr)
+            Lib_OVMCodec.Transaction(
+                block.timestamp,                       // timestamp
+                block.number,                          // blockNumber
+                Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE, // source
+                address(this),                         // l1TxOrigin
+                address(0),                            // target
+                21000,                                 // gaslimit
+                bytes(""),                             // empty data
+            ),
+            address(stateMgr)
         );
-    }
-
-    function liftToL2(address acc) public {
-        putAccountAt(acc, acc);
-    }
-
-    function putAccountAt(address from, address to) public {
-        stateMgr.putAccount(from,
-                            Lib_OVMCodec.Account(
-                                                 0,
-                                                 0,
-                                                 KECCAK256_RLP_NULL_BYTES,
-                                                 KECCAK256_NULL_BYTES,
-                                                 to,
-                                                 false)
-                            );
-
     }
 
     function test_decodeTx() public {
         Lib_OVMCodec.decodeEIP155Transaction(
-                                             hex"f85f800180946888c043d3c793764a012b209e51ba766877f553808082036ca02a1f1c8ce0ccce461a8177117ff655ffd3e948dfecf4a27005ba0a74deab462da0347a6b843050f04ead7f8e7e46aaf29a1dde97dad0a3f42496df69b326f7e309", false);
-    }
-
-    function spinupEOA() public {
-        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
-        stateMgr.putEmptyAccount(0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374);
-        stateMgr.testAndSetAccountChanged(0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374);
-        executionMgr.ovmCREATEEOA(
-                                  0x03ab237a027f9be39cae8f0b7ba5c0c5fb9ddaac373371c1283eb972cfbb5db1,
-                                  0,
-                                  0x581f1fa4a220851d3821909b68a38c9fed9094bb2830094d847ed4c8fb30b34d,
-                                  0x657f781894e53e78fb97f1edd6376c99fba7f86c7a674e48b7edc18222c1c3ea);
+            hex"f85f800180946888c043d3c793764a012b209e51ba766877f553808082036ca02a1f1c8ce0ccce461a8177117ff655ffd3e948dfecf4a27005ba0a74deab462da0347a6b843050f04ead7f8e7e46aaf29a1dde97dad0a3f42496df69b326f7e309",
+            false
+        );
     }
 
     function testEOA(bytes memory a) public {
@@ -161,6 +125,66 @@ contract StateTransiti1onerTest is DSTest {
                 abi.encodeWithSignature("ovmCREATE(bytes)", type(Broken).creationCode)
             ),
             address(stateMgr)
+        );
+    }
+
+    // --- Utils ---
+
+    function writeGasMetaData() public {
+        stateMgr.putAccount(
+            0x06a506A506a506A506a506a506A506A506A506A5,
+            Lib_OVMCodec.Account(
+                0,                        // nonce
+                0,                        // balance
+                KECCAK256_RLP_NULL_BYTES, // storageRoot
+                KECCAK256_NULL_BYTES,     // codeHash
+                address(0),               // ethAddress
+                false                     // isFresh
+            )
+        );
+        stateMgr.putContractStorage(
+            0x06a506A506a506A506a506a506A506A506A506A5,
+            bytes32(0), //bytes32(iOVM_ExecutionManager.GasMetadataKey.CURRENT_EPOCH_START_TIMESTAMP),
+            bytes32(uint(1))
+        );
+        stateMgr.commitContractStorage(
+            0x06a506A506a506A506a506a506A506A506A506A5,
+            bytes32(0)
+        );
+        stateMgr.commitAccount(0x06a506A506a506A506a506a506A506A506A506A5);
+        stateMgr.testAndSetContractStorageLoaded(
+            0x06a506A506a506A506a506a506A506A506A506A5,
+            bytes32(0)
+        );
+    }
+
+    function spinupEOA() public {
+        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
+        stateMgr.putEmptyAccount(0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374);
+        stateMgr.testAndSetAccountChanged(0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374);
+        executionMgr.ovmCREATEEOA(
+            0x03ab237a027f9be39cae8f0b7ba5c0c5fb9ddaac373371c1283eb972cfbb5db1,
+            0,
+            0x581f1fa4a220851d3821909b68a38c9fed9094bb2830094d847ed4c8fb30b34d,
+            0x657f781894e53e78fb97f1edd6376c99fba7f86c7a674e48b7edc18222c1c3ea
+        );
+    }
+
+    function liftToL2(address acc) public {
+        putAccountAt(acc, acc);
+    }
+
+    function putAccountAt(address from, address to) public {
+        stateMgr.putAccount(
+            from,
+            Lib_OVMCodec.Account(
+                 0,                        // nonce
+                 0,                        // balance
+                 KECCAK256_RLP_NULL_BYTES, // storageRoot
+                 KECCAK256_NULL_BYTES,     // codeHash
+                 to,                       // ethAddress
+                 false                     // isFresh
+            )
         );
     }
 }
@@ -196,23 +220,6 @@ contract Broken {
     }
 }
 
-
-/* contract BondManagerTest is DSTest { */
-/*     Lib_AddressManager manager; */
-/*     Lib_AddressResolver resolver; */
-/*     OVM_BondManager mgr; */
-
-/*     function setUp() public { */
-/*         manager = new Lib_AddressManager(); */
-/*         mgr = new OVM_BondManager(ERC20(address(0x00)), address(manager)); */
-/*     } */
-/*     function test_a() public { */
-/*         assertEq(address(mgr.token()), address(0x00)); */
-/*     } */
-/*     function prove_a() public { */
-/*         assertEq(address(mgr.token()), address(0x00)); */
-/*     } */
-/* } */
 
 // some loose ideas here... this might be junk.
 /* contract MerkleTreeTest is DSTest, Lib_MerkleTree { */
