@@ -1,8 +1,8 @@
 pragma experimental ABIEncoderV2;
 
 import { iOVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/execution/iOVM_ExecutionManager.sol";
-import{ ERC20 } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/verification/iOVM_BondManager.sol";
-
+import { ERC20 } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/verification/iOVM_BondManager.sol";
+import { TestERC20 } from "../contracts-v2/contracts/test-helpers/TestERC20.sol";
 import { Lib_AddressResolver } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressResolver.sol";
 import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
 import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
@@ -81,6 +81,13 @@ contract StateTransiti1onerTest is DSTest {
 
         stateMgr.setExecutionManager(address(executionMgr));
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
+        token = new TestERC20();
+    }
+
+    function test_trivial_erc20_transfer() public {
+        token.mint(address(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 100);
+        uint balance = token.balanceOf(address(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203));
+        assertEq(balance, 100);
     }
 
     function test_trivial_run_exe() public {
