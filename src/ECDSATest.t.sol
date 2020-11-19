@@ -69,8 +69,8 @@ contract StateTransiti1onerTest is DSTest {
             address(addressManager),
             iOVM_ExecutionManager.GasMeterConfig({
                 minTransactionGasLimit: 0,
-                maxTransactionGasLimit: uint(-1),
-                maxGasPerQueuePerEpoch: uint(-1),
+                maxTransactionGasLimit: 1000000000,
+                maxGasPerQueuePerEpoch: 250000000,
                 secondsPerEpoch:        60
             }),
             iOVM_ExecutionManager.GlobalContext(420) /* blaze it */
@@ -112,7 +112,7 @@ contract StateTransiti1onerTest is DSTest {
 
 
     function test_create_contract() public {
-        address target = address(new makeBroken());
+        address target = address(new MakeEmpty());
         liftToL2(address(target));
         stateMgr.putEmptyAccount(0x42d454D12b11EdfB2e5cb8c90e6809a4E4925Ee5);
 
@@ -198,7 +198,7 @@ contract StateTransiti1onerTest is DSTest {
     }
 }
 
-contract makeEmpty {
+contract MakeEmpty {
     constructor() {}
 
     function build() public {
