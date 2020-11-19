@@ -71,7 +71,7 @@ contract StateTransiti1onerTest is DSTest {
                 minTransactionGasLimit: 0,
                 maxTransactionGasLimit: 1000000000,
                 maxGasPerQueuePerEpoch: 250000000,
-                secondsPerEpoch:        60
+                secondsPerEpoch:        600
             }),
             iOVM_ExecutionManager.GlobalContext(420) /* blaze it */
         );
