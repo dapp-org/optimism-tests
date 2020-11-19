@@ -69,12 +69,12 @@ contract StateTransiti1onerTest is DSTest {
 
         executionMgr = new OVM_ExecutionManager(
             address(addressManager),
-            iOVM_ExecutionManager.GasMeterConfig(
-                0,        // minTransactionGasLimit
-                uint(-1), // maxTransactionGasLimit
-                uint(-1), // maxGasPerQueuePerEpoch
-                60        // secondsPerEpoch
-            ),
+            iOVM_ExecutionManager.GasMeterConfig({
+                minTransactionGasLimit: 0,
+                maxTransactionGasLimit: uint(-1),
+                maxGasPerQueuePerEpoch: uint(-1),
+                secondsPerEpoch:        60
+            }),
             iOVM_ExecutionManager.GlobalContext(420) /* blaze it */
         );
 
@@ -87,15 +87,15 @@ contract StateTransiti1onerTest is DSTest {
 
     function test_trivial_run_exe() public {
         executionMgr.run(
-            Lib_OVMCodec.Transaction(
-                block.timestamp,                       // timestamp
-                block.number,                          // blockNumber
-                Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE, // source
-                address(this),                         // l1TxOrigin
-                address(0),                            // target
-                21000,                                 // gaslimit
-                bytes(""),                             // empty data
-            ),
+            Lib_OVMCodec.Transaction({
+                timestamp:     block.timestamp,
+                blockNumber:   block.number,
+                l1QueueOrigin: Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE,
+                l1TxOrigin:    address(this),
+                entrypoint:    address(0),
+                gasLimit:      21000,
+                data:          bytes("")
+            }),
             address(stateMgr)
         );
     }
@@ -115,15 +115,15 @@ contract StateTransiti1onerTest is DSTest {
 
     function test_initcode_revert() public {
         executionMgr.run(
-            Lib_OVMCodec.Transaction(
-                block.timestamp,
-                block.number,
-                Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE,
-                address(this),
-                address(this), // target
-                21000,         // gaslimit
-                abi.encodeWithSignature("ovmCREATE(bytes)", type(Broken).creationCode)
-            ),
+            Lib_OVMCodec.Transaction({
+                timestamp:     block.timestamp,
+                blockNumber:   block.number,
+                l1QueueOrigin: Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE,
+                l1TxOrigin:    address(this),
+                entrypoint:    address(0),
+                gasLimit:      21000,
+                data:          abi.encodeWithSignature("ovmCREATE(bytes)", type(Broken).creationCode)
+            }),
             address(stateMgr)
         );
     }
@@ -134,14 +134,14 @@ contract StateTransiti1onerTest is DSTest {
         address gas_metadata_address = 0x06a506A506a506A506a506a506A506A506A506A5;
         stateMgr.putAccount(
             gas_metadata_address,
-            Lib_OVMCodec.Account(
-                0,                        // nonce
-                0,                        // balance
-                KECCAK256_RLP_NULL_BYTES, // storageRoot
-                KECCAK256_NULL_BYTES,     // codeHash
-                address(0),               // ethAddress
-                false                     // isFresh
-            )
+            Lib_OVMCodec.Account({
+                nonce:       0,
+                balance:     0,
+                storageRoot: KECCAK256_RLP_NULL_BYTES,
+                codeHash:    KECCAK256_NULL_BYTES,
+                ethAddress:  address(0),
+                isFresh:     false
+            })
         );
         stateMgr.putContractStorage(
             gas_metadata_address,
@@ -178,14 +178,14 @@ contract StateTransiti1onerTest is DSTest {
     function putAccountAt(address from, address to) public {
         stateMgr.putAccount(
             from,
-            Lib_OVMCodec.Account(
-                 0,                        // nonce
-                 0,                        // balance
-                 KECCAK256_RLP_NULL_BYTES, // storageRoot
-                 KECCAK256_NULL_BYTES,     // codeHash
-                 to,                       // ethAddress
-                 false                     // isFresh
-            )
+            Lib_OVMCodec.Account({
+                nonce:       0,
+                balance:     0,
+                storageRoot: KECCAK256_RLP_NULL_BYTES,
+                codeHash:    KECCAK256_NULL_BYTES,
+                ethAddress:  to,
+                isFresh:     false
+            })
         );
     }
 }
