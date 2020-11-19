@@ -131,8 +131,9 @@ contract StateTransiti1onerTest is DSTest {
     // --- Utils ---
 
     function writeGasMetaData() public {
+        address gas_metadata_address = 0x06a506A506a506A506a506a506A506A506A506A5;
         stateMgr.putAccount(
-            0x06a506A506a506A506a506a506A506A506A506A5,
+            gas_metadata_address,
             Lib_OVMCodec.Account(
                 0,                        // nonce
                 0,                        // balance
@@ -143,17 +144,17 @@ contract StateTransiti1onerTest is DSTest {
             )
         );
         stateMgr.putContractStorage(
-            0x06a506A506a506A506a506a506A506A506A506A5,
+            gas_metadata_address,
             bytes32(0), //bytes32(iOVM_ExecutionManager.GasMetadataKey.CURRENT_EPOCH_START_TIMESTAMP),
             bytes32(uint(1))
         );
         stateMgr.commitContractStorage(
-            0x06a506A506a506A506a506a506A506A506A506A5,
+            gas_metadata_address,
             bytes32(0)
         );
         stateMgr.commitAccount(0x06a506A506a506A506a506a506A506A506A506A5);
         stateMgr.testAndSetContractStorageLoaded(
-            0x06a506A506a506A506a506a506A506A506A506A5,
+            gas_metadata_address,
             bytes32(0)
         );
     }
