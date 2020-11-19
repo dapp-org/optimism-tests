@@ -57,6 +57,7 @@ contract StateTransiti1onerTest is DSTest {
     OVM_ExecutionManager executionMgr;
     OVM_StateManager stateMgr;
     OVM_SafetyChecker safetyChecker;
+    TestERC20 token;
 
     function setUp() public {
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
@@ -212,13 +213,23 @@ contract StateTransiti1onerTest is DSTest {
     // generate this tx by running `./sign 0x1`
     function testChainIdReplay() public {
         // This tx has chainid = 1.
-        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(Lib_OVMCodec.EIP155Transaction(1,
-                                                                                                     1,
-                                                                                                     21000,
-                                                                                                     0xD521C744831cFa3ffe472d9F5F9398c9Ac806203, // same as signer
-                                                                                                     0,
-                                                                                                     bytes(""),
-                                                                                                     1),
+
+        // struct EIP155Transaction 
+        uint256 nonce = 1;
+        uint256 gasPrice = 1;
+        uint256 gasLimit = 21000;
+        address to = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
+        uint256 value = 0;
+        bytes memory data = "";
+        uint256 chainId = 1;
+        
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(Lib_OVMCodec.EIP155Transaction(nonce,
+                                                                                                     gasPrice,
+                                                                                                     gasLimit,
+                                                                                                     to, // same as signer
+                                                                                                     value,
+                                                                                                     data,
+                                                                                                     chainId),
                                                                       false);
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
