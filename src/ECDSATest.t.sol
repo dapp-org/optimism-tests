@@ -7,6 +7,7 @@ import { Lib_AddressResolver } from "../contracts-v2/contracts/optimistic-ethere
 import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
 import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
 import { Lib_RLPWriter } from "../contracts-v2/contracts/optimistic-ethereum/libraries/rlp/Lib_RLPWriter.sol";
+import { Lib_ECDSAUtils } from "../contracts-v2/contracts/optimistic-ethereum/libraries/utils/Lib_ECDSAUtils.sol";
 import { Lib_SafeExecutionManagerWrapper } from "../contracts-v2/contracts/optimistic-ethereum/libraries/wrappers/Lib_SafeExecutionManagerWrapper.sol";
 
 import { OVM_StateTransitioner } from "../contracts-v2/contracts/optimistic-ethereum/OVM/verification/OVM_StateTransitioner.sol";
@@ -189,20 +190,80 @@ contract StateTransiti1onerTest is DSTest {
     }
 
     function putAccountAt(address from, address to) public {
-        bytes32 codeHash; assembly { codeHash := extcodehash(to) }
+        bytes32 codeHash; assembly { codeHash := extcodehash(from) }
+        log_named_bytes32("codehash", codeHash);
         stateMgr.putAccount(
-            from,
+            to,
             Lib_OVMCodec.Account({
                 nonce:       0,
                 balance:     0,
                 storageRoot: KECCAK256_RLP_NULL_BYTES,
                 codeHash:    codeHash,
-                ethAddress:  to,
+                ethAddress:  from,
                 isFresh:     false
             })
         );
         stateMgr.commitAccount(to);
         stateMgr.testAndSetAccountLoaded(to);
+    }
+
+
+    // demonstrates wrong chainid replaying
+    // generate this tx by running `./sign 0x1`
+    function testChainIdReplay() public {
+        // This tx has chainid = 1.
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(Lib_OVMCodec.EIP155Transaction(1,
+                                                                                                     1,
+                                                                                                     21000,
+                                                                                                     0xD521C744831cFa3ffe472d9F5F9398c9Ac806203, // same as signer
+                                                                                                     0,
+                                                                                                     bytes(""),
+                                                                                                     1),
+                                                                      false);
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
+        stateMgr.hasAccount(0x4200000000000000000000000000000000000003);
+        // Set messageRecord.nuisanceGasLeft to 50000
+        hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
+
+        bytes32 exampleTxHash = keccak256(exampleTx);
+        // use it to set up an ECDSA for the signer
+        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
+        stateMgr.putEmptyAccount(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203);
+        stateMgr.testAndSetAccountChanged(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203);
+
+        executionMgr.ovmCREATEEOA(
+            exampleTxHash,
+            1,
+            0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
+            0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
+        );
+        // This deploys an EOA at 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+        executionMgr.ovmCALL(gasleft(), 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203,
+                             abi.encodeWithSignature(
+                                                     "execute(bytes,uint8,uint8,bytes32,bytes32)",
+                                                     exampleTx,
+                                                     0,
+                                                     1,
+                                                     0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
+                                                     0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
+                                                     ));
+
+    }
+
+    // signing with 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+    function test_ecrecover() public {
+        bytes memory signingData = Utils.encodeEIP155Transaction(Utils.EIP155Transaction(0,
+                                                                                         1,
+                                                                                         21000,
+                                                                                         address(1),
+                                                                                         0,
+                                                                                         bytes(""),
+                                                                                         1),
+                                                                 false);
+        logs(signingData);
+        address rec = ecrecover(keccak256(signingData), 28, 0xfdffd4d45e92e68a36922249174a93694e5b46f0a52b5ad74fb142557d574c0d,0x217bd0d055444a47fb074e23e04b1bf1171720bff70de0456c5127bcb7d26acc);
+        assertEq(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203, rec);
     }
 }
 
@@ -268,6 +329,16 @@ contract Empty {
 }
 
 library Utils {
+    struct EIP155Transaction {
+        uint256 nonce;
+        uint256 gasPrice;
+        uint256 gasLimit;
+        address to;
+        uint256 value;
+        bytes data;
+        uint256 chainId;
+    }
+
     function decodeRevertData(
         bytes memory revertdata
     )
@@ -279,7 +350,51 @@ library Utils {
         }
         return abi.decode(revertdata, (uint256, uint256, uint256, bytes));
     }
+
+        function encodeEIP155Transaction(
+        EIP155Transaction memory _transaction,
+        bool _isEthSignedMessage
+    )
+        internal
+        pure
+        returns (
+            bytes memory
+        )
+    {
+        if (_isEthSignedMessage) {
+            return abi.encode(
+                _transaction.nonce,
+                _transaction.gasLimit,
+                _transaction.gasPrice,
+                _transaction.chainId,
+                _transaction.to,
+                _transaction.data
+            );
+        } else {
+            bytes[] memory raw = new bytes[](9);
+
+            raw[0] = Lib_RLPWriter.writeUint(_transaction.nonce);
+            raw[1] = Lib_RLPWriter.writeUint(_transaction.gasPrice);
+            raw[2] = Lib_RLPWriter.writeUint(_transaction.gasLimit);
+            if (_transaction.to == address(0)) {
+                raw[3] = Lib_RLPWriter.writeBytes('');
+            } else {
+                raw[3] = Lib_RLPWriter.writeAddress(_transaction.to);
+            }
+            raw[4] = Lib_RLPWriter.writeUint(_transaction.value);
+            raw[5] = Lib_RLPWriter.writeBytes(_transaction.data);
+            raw[6] = Lib_RLPWriter.writeUint(_transaction.chainId);
+            raw[7] = Lib_RLPWriter.writeBytes(bytes(''));
+            raw[8] = Lib_RLPWriter.writeBytes(bytes(''));
+
+            return Lib_RLPWriter.writeList(raw);
+        }
+    }
+
 }
+
+
+
 
 // some loose ideas here... this might be junk.
 /* contract MerkleTreeTest is DSTest, Lib_MerkleTree { */
