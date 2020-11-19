@@ -112,20 +112,19 @@ contract StateTransiti1onerTest is DSTest {
 
 
     function test_initcode_revert() public {
-        bytes memory txdata = abi.encodeWithSignature(
-            "ovmCREATE(bytes)",
-            abi.encodePacked(type(Broken).creationCode, address(executionMgr))
-        );
-        liftToL2(address(executionMgr));
+        address target = address(new makeBroken());
+        liftToL2(address(target));
+        stateMgr.putEmptyAccount(0x42d454D12b11EdfB2e5cb8c90e6809a4E4925Ee5);
+
         executionMgr.run(
             Lib_OVMCodec.Transaction({
                 timestamp:     block.timestamp,
                 blockNumber:   block.number,
                 l1QueueOrigin: Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE,
                 l1TxOrigin:    address(this),
-                entrypoint:    address(executionMgr),
-                gasLimit:      21000,
-                data:          txdata
+                entrypoint:    target,
+                gasLimit:      uint64(-1),
+                data:          abi.encodeWithSignature("build()")
             }),
             address(stateMgr)
         );
@@ -154,7 +153,7 @@ contract StateTransiti1onerTest is DSTest {
 
         stateMgr.commitAccount(gas_metadata_address);
 
-        // set all metadata keys loaded
+        // test and set all metadata keys
         for (uint i = 0; i <= 4; i++) {
             stateMgr.testAndSetContractStorageLoaded(gas_metadata_address, bytes32(i));
         }
@@ -182,42 +181,55 @@ contract StateTransiti1onerTest is DSTest {
     }
 
     function putAccountAt(address from, address to) public {
+        bytes32 codeHash; assembly { codeHash := extcodehash(to) }
         stateMgr.putAccount(
             from,
             Lib_OVMCodec.Account({
                 nonce:       0,
                 balance:     0,
                 storageRoot: KECCAK256_RLP_NULL_BYTES,
-                codeHash:    KECCAK256_NULL_BYTES,
+                codeHash:    codeHash,
                 ethAddress:  to,
                 isFresh:     false
             })
         );
+        stateMgr.commitAccount(to);
+        stateMgr.testAndSetAccountLoaded(to);
     }
 }
 
 contract makeBroken {
     constructor() {}
+
+    function build() public {
+        Lib_SafeExecutionManagerWrapper.safeCREATE(
+            gasleft(), type(Broken).creationCode
+        );
+    }
 }
 
 contract Broken {
-    constructor(address exec) {
-        (bool res, bytes memory data) = exec.call(
-            abi.encodeWithSignature("ovmSLOAD(bytes32)", 666)
-        );
+    constructor() {
+        //(bool res, bytes memory data) = address(msg.sender).call{gas: uint48(-1)}(
+            //abi.encodeWithSignature(
+                //"ovmCALL(uint,address,bytes)", uint48(-1), address(0x420), bytes("")
+            //)
+        //);
 
-        if (!res) {
-            (uint flag,,,) = decodeRevertData(data);
-            if (iOVM_ExecutionManager.RevertFlag(flag)
-                    == iOVM_ExecutionManager.RevertFlag.INVALID_STATE_ACCESS) {
-                while (true) {
-                    assembly { pop(0) } // force a revert by underflowing the stack
-                }
-            }
+        //if (!res) {
+            //(uint flag,,,) = Utils.decodeRevertData(data);
+            //if (iOVM_ExecutionManager.RevertFlag(flag)
+                    //== iOVM_ExecutionManager.RevertFlag.INVALID_STATE_ACCESS) {
+                //while (true) {
+                    //assembly { pop(0) } // force a revert by underflowing the stack
+                //}
+            //}
 
-        }
+        //}
     }
+}
 
+library Utils {
     function decodeRevertData(
         bytes memory revertdata
     )
@@ -230,7 +242,6 @@ contract Broken {
         return abi.decode(revertdata, (uint256, uint256, uint256, bytes));
     }
 }
-
 
 // some loose ideas here... this might be junk.
 /* contract MerkleTreeTest is DSTest, Lib_MerkleTree { */
