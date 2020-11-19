@@ -8,13 +8,13 @@ import { OVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ether
 import { iOVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/execution/iOVM_ExecutionManager.sol";
 import { OVM_SafetyChecker } from "../contracts-v2/contracts/optimistic-ethereum/OVM/execution/OVM_SafetyChecker.sol";
 
-import {Lib_AddressResolver} from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressResolver.sol";
-import {Lib_AddressManager} from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
-import {Lib_OVMCodec} from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
+import { Lib_AddressResolver } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressResolver.sol";
+import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
+import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
 
 
-import{ERC20} from "../contracts-v2/contracts/optimistic-ethereum/iOVM/verification/iOVM_BondManager.sol";
-import {DSTest} from "ds-test/test.sol";
+import{ ERC20 } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/verification/iOVM_BondManager.sol";
+import { DSTest } from "ds-test/test.sol";
 
 import { OVM_ProxyEOA } from "../contracts-v2/contracts/optimistic-ethereum/OVM/accounts/OVM_ProxyEOA.sol";
 import { OVM_ECDSAContractAccount } from "../contracts-v2/contracts/optimistic-ethereum/OVM/accounts/OVM_ECDSAContractAccount.sol";
@@ -45,8 +45,6 @@ contract StateTransiti1onerTest is DSTest {
     bytes32 constant internal NULL_BYTES32 = bytes32('');
     bytes32 constant internal KECCAK256_RLP_NULL_BYTES = keccak256(RLP_NULL_BYTES);
     bytes32 constant internal KECCAK256_NULL_BYTES = keccak256(NULL_BYTES);
-
-
 
     Hevm hevm;
     Lib_AddressManager addressManager;
