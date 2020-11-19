@@ -141,20 +141,23 @@ contract StateTransiti1onerTest is DSTest {
                 isFresh:     false
             })
         );
-        stateMgr.putContractStorage(
-            gas_metadata_address,
-            bytes32(0), //bytes32(iOVM_ExecutionManager.GasMetadataKey.CURRENT_EPOCH_START_TIMESTAMP),
-            bytes32(uint(1))
-        );
-        stateMgr.commitContractStorage(
-            gas_metadata_address,
-            bytes32(0)
-        );
-        stateMgr.commitAccount(0x06a506A506a506A506a506a506A506A506A506A5);
-        stateMgr.testAndSetContractStorageLoaded(
-            gas_metadata_address,
-            bytes32(0)
-        );
+
+        // write every GasMetadataKey
+        for (uint i = 0; i <= 4; i++) {
+            writeStorage(gas_metadata_address, bytes32(i), bytes32(uint(1)));
+        }
+
+        stateMgr.commitAccount(gas_metadata_address);
+
+        // set all metadata keys loaded
+        for (uint i = 0; i <= 4; i++) {
+            stateMgr.testAndSetContractStorageLoaded(gas_metadata_address, bytes32(i));
+        }
+    }
+
+    function writeStorage(address target, bytes32 key, bytes32 val) public {
+        stateMgr.putContractStorage(target, key, val);
+        stateMgr.commitContractStorage(target, key);
     }
 
     function spinupEOA() public {
