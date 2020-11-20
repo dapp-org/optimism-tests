@@ -140,6 +140,93 @@ contract StateTransiti1onerTest is DSTest {
         );
     }
 
+    // demonstrates wrong chainid replaying
+    // generate this tx by running `./sign 0x1`
+    function testChainIdReplay() public {
+        // This tx has chainid = 1.
+
+        // struct EIP155Transaction
+        uint256 nonce = 1;
+        uint256 gasPrice = 1;
+        uint256 gasLimit = 21000;
+        address to = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
+        uint256 value = 0;
+        bytes memory data = "";
+        uint256 chainId = 1;
+
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction(
+                nonce,
+                gasPrice,
+                gasLimit,
+                to, // same as signer
+                value,
+                data,
+                chainId
+            ),
+            false
+        );
+
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
+        stateMgr.hasAccount(0x4200000000000000000000000000000000000003);
+
+        // Set messageRecord.nuisanceGasLeft to 50000
+        hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
+
+        bytes32 exampleTxHash = keccak256(exampleTx);
+
+        // use it to set up an ECDSA for the signer
+        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
+        stateMgr.putEmptyAccount(to);
+        stateMgr.testAndSetAccountChanged(to);
+
+        executionMgr.ovmCREATEEOA(
+            exampleTxHash,
+            1,
+            0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
+            0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
+        );
+
+        // This deploys an EOA at 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+        executionMgr.ovmCALL(
+            gasleft(),
+            0xD521C744831cFa3ffe472d9F5F9398c9Ac806203,
+            abi.encodeWithSignature(
+                "execute(bytes,uint8,uint8,bytes32,bytes32)",
+                exampleTx,
+                0,
+                1,
+                0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
+                0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
+            )
+        );
+    }
+
+    // signing with 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+    function test_ecrecover() public {
+        bytes memory signingData = Utils.encodeEIP155Transaction(
+            Utils.EIP155Transaction({
+                nonce:    0,
+                gasPrice: 1,
+                gasLimit: 21000,
+                to:       address(1),
+                value:    0,
+                data:     bytes(""),
+                chainId:  1
+            }),
+            false
+        );
+        logs(signingData);
+        address rec = ecrecover(
+            keccak256(signingData),
+            28,
+            0xfdffd4d45e92e68a36922249174a93694e5b46f0a52b5ad74fb142557d574c0d,
+            0x217bd0d055444a47fb074e23e04b1bf1171720bff70de0456c5127bcb7d26acc
+        );
+        assertEq(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203, rec);
+    }
+
     // --- Utils ---
 
     function writeGasMetaData() public {
@@ -207,75 +294,6 @@ contract StateTransiti1onerTest is DSTest {
         stateMgr.commitAccount(to);
         stateMgr.testAndSetAccountLoaded(to);
     }
-
-
-    // demonstrates wrong chainid replaying
-    // generate this tx by running `./sign 0x1`
-    function testChainIdReplay() public {
-        // This tx has chainid = 1.
-
-        // struct EIP155Transaction 
-        uint256 nonce = 1;
-        uint256 gasPrice = 1;
-        uint256 gasLimit = 21000;
-        address to = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
-        uint256 value = 0;
-        bytes memory data = "";
-        uint256 chainId = 1;
-        
-        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(Lib_OVMCodec.EIP155Transaction(nonce,
-                                                                                                     gasPrice,
-                                                                                                     gasLimit,
-                                                                                                     to, // same as signer
-                                                                                                     value,
-                                                                                                     data,
-                                                                                                     chainId),
-                                                                      false);
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
-        putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
-        stateMgr.hasAccount(0x4200000000000000000000000000000000000003);
-        // Set messageRecord.nuisanceGasLeft to 50000
-        hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
-
-        bytes32 exampleTxHash = keccak256(exampleTx);
-        // use it to set up an ECDSA for the signer
-        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
-        stateMgr.putEmptyAccount(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203);
-        stateMgr.testAndSetAccountChanged(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203);
-
-        executionMgr.ovmCREATEEOA(
-            exampleTxHash,
-            1,
-            0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
-            0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
-        );
-        // This deploys an EOA at 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
-        executionMgr.ovmCALL(gasleft(), 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203,
-                             abi.encodeWithSignature(
-                                                     "execute(bytes,uint8,uint8,bytes32,bytes32)",
-                                                     exampleTx,
-                                                     0,
-                                                     1,
-                                                     0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
-                                                     0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
-                                                     ));
-
-    }
-
-    // signing with 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
-    function test_ecrecover() public {
-        bytes memory signingData = Utils.encodeEIP155Transaction(Utils.EIP155Transaction(0,
-                                                                                         1,
-                                                                                         21000,
-                                                                                         address(1),
-                                                                                         0,
-                                                                                         bytes(""),
-                                                                                         1),
-                                                                 false);
-        logs(signingData);
-        address rec = ecrecover(keccak256(signingData), 28, 0xfdffd4d45e92e68a36922249174a93694e5b46f0a52b5ad74fb142557d574c0d,0x217bd0d055444a47fb074e23e04b1bf1171720bff70de0456c5127bcb7d26acc);
-        assertEq(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203, rec);
-    }
 }
 
 // It is not uncommon for calls to the RLPWriter to fail with a
@@ -292,34 +310,46 @@ contract TestRLP is DSTest {
 
     // a couple of concrete examples:
     function testRLPWriterAddressConcrete() public {
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
+        // just here to fuck with memory a bit
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         bytes memory outOne = Lib_RLPWriter.writeAddress(address(0));
         bytes memory outTwo = Lib_RLPWriter.writeAddress(0x00000000000000000000000000000000000ffffE);
     }
 
     // Fuzz test; use these to discover tons of examples
     function test_RLPWriterBytes(bytes memory input) public {
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
+        // just here to fuck with memory a bit
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeBytes(input);
     }
     function test_RLPWriterAddress(address input) public {
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
+        // just here to fuck with memory a bit
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeAddress(input);
     }
     function test_RLPWriterString(string memory input) public {
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
+        // just here to fuck with memory a bit
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeString(input);
     }
-    function test_rand_RLPencodeEIP155(uint nonce, uint glimit, uint gprice, address to, uint val, bytes memory data, uint chainid, bool tf) public {
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount(); // just here to fuck with memory a bit
-        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(Lib_OVMCodec.EIP155Transaction(nonce,
-                                                                                                     glimit,
-                                                                                                     gprice,
-                                                                                                     to,
-                                                                                                     val,
-                                                                                                     data,
-                                                                                                     chainid),
-                                                                      tf);
+    function test_rand_RLPencodeEIP155(
+        uint nonce, uint glimit, uint gprice, address to,
+        uint val, bytes memory data, uint chainid, bool tf
+    ) public {
+        // just here to fuck with memory a bit
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction(
+                nonce,
+                glimit,
+                gprice,
+                to,
+                val,
+                data,
+                chainid
+            ),
+            tf
+        );
     }
 }
 
@@ -362,7 +392,7 @@ library Utils {
         return abi.decode(revertdata, (uint256, uint256, uint256, bytes));
     }
 
-        function encodeEIP155Transaction(
+    function encodeEIP155Transaction(
         EIP155Transaction memory _transaction,
         bool _isEthSignedMessage
     )
