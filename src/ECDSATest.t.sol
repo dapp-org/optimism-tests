@@ -219,6 +219,67 @@ contract StateTransiti1onerTest is DSTest {
         assertEq(balanceOf(address(0)), 64);
     }
 
+    // in ./sign
+    // gasLimit 200
+    // gasPrice 0
+    // to TEST_EOA
+    // TX=$(ethsign tx --to 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 --from "$FROM" --chain-id 420 --gas-price 0  --passphrase-file optimistic --key-store secrets --nonce 1 --value 0 --gas-limit 200)
+    function test_underflow_gascap() public {
+        uint256 nonce = 1;
+        uint256 gasPrice = 0;
+        uint256 gasLimit = 200;
+        address to = TEST_EOA;
+        uint256 value = 0;
+        bytes memory data = "";
+        uint256 chainId = 420;
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction(
+                nonce,
+                gasPrice,
+                gasLimit,
+                to, // same as signer
+                value,
+                data,
+                chainId
+            ),
+            false
+        );
+
+        bytes32 balanceVal = bytes32(uint(25000));
+        writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
+        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
+        // Set messageRecord.nuisanceGasLeft to 50000
+        hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
+        install_ETH_ERC20();
+        deployEOA();
+        // --- PRE STATE ----
+        // ovmCALLER is actually 0 here
+        assertEq(balanceOf(address(0)), 0);
+        assertEq(balanceOf(TEST_EOA), 25000);
+
+        bytes32 exampleTxHash = keccak256(exampleTx);
+        log_bytes32(exampleTxHash);
+
+        // out of gas - which may be expected
+        executionMgr.ovmCALL(
+            gasleft(),
+            TEST_EOA,
+            abi.encodeWithSignature(
+                "execute(bytes,uint8,uint8,bytes32,bytes32)",
+                exampleTx,
+                0,
+                0,
+                0xafe7ffa0582f3e324e4f92a462a334fd9aa4dc23b56b71531259028dd6b479f3,
+                0x74caad2e5516f4f318fe56b15b68c070eb4b8c7c20e7ea1b0ab9a8f68629421b
+            )
+        );
+
+        // doesn't get here...yet?
+        // --- POST STATE ---
+        assertEq(balanceOf(TEST_EOA), 25000);
+        assertEq(balanceOf(address(0)), 0);
+    }
+
     // signing with TEST_EOA
     function test_ecrecover() public {
         bytes memory signingData = Utils.encodeEIP155Transaction(
