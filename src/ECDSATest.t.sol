@@ -1,8 +1,6 @@
 pragma experimental ABIEncoderV2;
 
 import { iOVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/execution/iOVM_ExecutionManager.sol";
-import { ERC20 } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/verification/iOVM_BondManager.sol";
-import { TestERC20 } from "../contracts-v2/contracts/test-helpers/TestERC20.sol";
 import { Lib_AddressResolver } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressResolver.sol";
 import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
 import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
@@ -20,6 +18,7 @@ import { OVM_ProxyEOA } from "../contracts-v2/contracts/optimistic-ethereum/OVM/
 import { OVM_ECDSAContractAccount } from "../contracts-v2/contracts/optimistic-ethereum/OVM/accounts/OVM_ECDSAContractAccount.sol";
 
 import { DSTest } from "ds-test/test.sol";
+import "./ERC20Setup.sol";
 
 // Format of tx sent to `executionMgr.run
 // struct Transaction {
@@ -47,9 +46,13 @@ contract StateTransiti1onerTest is DSTest {
     bytes32 constant internal NULL_BYTES32 = bytes32('');
     bytes32 constant internal KECCAK256_RLP_NULL_BYTES = keccak256(RLP_NULL_BYTES);
     bytes32 constant internal KECCAK256_NULL_BYTES = keccak256(NULL_BYTES);
+    address constant RELAYER_TOKEN_ADDRESS = 0x4200000000000000000000000000000000000006;
 
     Hevm hevm;
     Lib_AddressManager addressManager;
+
+    ERC20Setup erc20Setup;
+    address ovmERC20Address;
 
     Lib_AddressResolver resolver;
     OVM_StateManagerFactory stateMgrFactory;
@@ -57,13 +60,15 @@ contract StateTransiti1onerTest is DSTest {
     OVM_ExecutionManager executionMgr;
     OVM_StateManager stateMgr;
     OVM_SafetyChecker safetyChecker;
-    TestERC20 token;
-
+    
     function setUp() public {
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         addressManager = new Lib_AddressManager();
         stateMgrFactory = new OVM_StateManagerFactory();
         safetyChecker = new OVM_SafetyChecker();
+        
+        erc20Setup = new ERC20Setup();
+        ovmERC20Address = erc20Setup.deployTokenContract();
 
         addressManager.setAddress("OVM_StateManagerFactory", address(stateMgrFactory));
         addressManager.setAddress("OVM_SafetyChecker", address(safetyChecker));
@@ -87,10 +92,8 @@ contract StateTransiti1onerTest is DSTest {
         token = new TestERC20();
     }
 
-    function test_trivial_erc20_transfer() public {
-        token.mint(address(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 100);
-        uint balance = token.balanceOf(address(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203));
-        assertEq(balance, 100);
+    function test_trivial_erc20_setup() public {
+        putAccountAt(ovmERC20Address, RELAYER_TOKEN_ADDRESS);
     }
 
     function test_trivial_run_exe() public {
@@ -170,6 +173,16 @@ contract StateTransiti1onerTest is DSTest {
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
         stateMgr.hasAccount(0x4200000000000000000000000000000000000003);
+
+        putAccountAt(ovmERC20Address, RELAYER_TOKEN_ADDRESS);
+        bytes32 balanceVal = bytes32(uint(25000));
+        writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
+        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, balanceVal);
+
+        // to do : getbalance helper function
+        // ovmload on execution manager
+        // use function to assert eq what we expect the post balance to be
+        // nice way to demonstrate the overflow and underslow effects
 
         // Set messageRecord.nuisanceGasLeft to 50000
         hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
@@ -277,22 +290,22 @@ contract StateTransiti1onerTest is DSTest {
         putAccountAt(acc, acc);
     }
 
-    function putAccountAt(address from, address to) public {
-        bytes32 codeHash; assembly { codeHash := extcodehash(from) }
+    function putAccountAt(address l1, address l2) public {
+        bytes32 codeHash; assembly { codeHash := extcodehash(l1) }
         log_named_bytes32("codehash", codeHash);
         stateMgr.putAccount(
-            to,
+            l2,
             Lib_OVMCodec.Account({
                 nonce:       0,
                 balance:     0,
                 storageRoot: KECCAK256_RLP_NULL_BYTES,
                 codeHash:    codeHash,
-                ethAddress:  from,
+                ethAddress:  l1,
                 isFresh:     false
             })
         );
-        stateMgr.commitAccount(to);
-        stateMgr.testAndSetAccountLoaded(to);
+        stateMgr.commitAccount(l2);
+        stateMgr.testAndSetAccountLoaded(l2);
     }
 }
 
