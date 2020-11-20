@@ -89,7 +89,6 @@ contract StateTransiti1onerTest is DSTest {
 
         stateMgr.setExecutionManager(address(executionMgr));
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
-        token = new TestERC20();
     }
 
     function test_trivial_erc20_setup() public {
