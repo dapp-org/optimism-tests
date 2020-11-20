@@ -61,13 +61,13 @@ contract StateTransiti1onerTest is DSTest {
     OVM_ExecutionManager executionMgr;
     OVM_StateManager stateMgr;
     OVM_SafetyChecker safetyChecker;
-    
+
     function setUp() public {
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         addressManager = new Lib_AddressManager();
         stateMgrFactory = new OVM_StateManagerFactory();
         safetyChecker = new OVM_SafetyChecker();
-        
+
         erc20Setup = new ERC20Setup();
         ovmERC20Address = erc20Setup.deployTokenContract();
 
@@ -133,63 +133,32 @@ contract StateTransiti1onerTest is DSTest {
         );
     }
 
-    // demonstrates wrong chainid replaying
-    // generate this tx by running `./sign 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203`
-    function testChainIdReplay() public {
-        // This tx has chainid = 1.
-
-        // struct EIP155Transaction
-        uint256 nonce = 1;
-        uint256 gasPrice = 1;
-        uint256 gasLimit = 21000;
-        address to = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
-        uint256 value = 0;
-        bytes memory data = "";
-        uint256 chainId = 1;
-        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
-            Lib_OVMCodec.EIP155Transaction(
-                nonce,
-                gasPrice,
-                gasLimit,
-                to, // same as signer
-                value,
-                data,
-                chainId
-            ),
-            false
-        );
-
-        bytes32 balanceVal = bytes32(uint(25000));
-        writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
-        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
-        // Set messageRecord.nuisanceGasLeft to 50000
-        hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
-        install_ETH_ERC20();
+    function test_upgrade_eoa() public {
+        address eoa = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
+        address empty = address(new Empty());
+        liftToL2(empty);
+        stateMgr.putEmptyAccount(eoa);
         deployEOA();
-        // --- PRE STATE ----
-        // ovmCALLER is actually 0 here
-        assertEq(balanceOf(address(0)), 0);
-        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000);
 
-        bytes32 exampleTxHash = keccak256(exampleTx);
-        log_bytes32(exampleTxHash);
-
-        executionMgr.ovmCALL(
-            gasleft(),
-            0xD521C744831cFa3ffe472d9F5F9398c9Ac806203,
-            abi.encodeWithSignature(
-                "execute(bytes,uint8,uint8,bytes32,bytes32)",
-                exampleTx,
-                0,
-                1,
-                0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
-                0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
-            )
+        executionMgr.run(
+            Lib_OVMCodec.Transaction({
+                timestamp:     block.timestamp,
+                blockNumber:   block.number,
+                l1QueueOrigin: Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE,
+                l1TxOrigin:    address(this),
+                entrypoint:    eoa,
+                gasLimit:      100000000,
+                data:          abi.encodeWithSignature("upgrade(address)", empty)
+            }),
+            address(stateMgr)
         );
 
-        // --- POST STATE ---
-        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000 - gasLimit);
-        assertEq(balanceOf(address(0)), gasLimit);
+        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
+        (bool res, bytes memory data) = executionMgr.ovmCALL(uint(-1), eoa, abi.encodeWithSignature("getImplementation"));
+        require(res, "cannot get impl");
+        address impl = abi.decode(data, (address));
+
+        assertEq(impl, empty);
     }
 
     // demonstrates wrong chainid replaying
@@ -200,7 +169,7 @@ contract StateTransiti1onerTest is DSTest {
         // struct EIP155Transaction
         uint256 nonce = 1;
         uint256 gasPrice = 1;
-        uint256 gasLimit = 0;
+        uint256 gasLimit = 21000;
         address to = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
         uint256 value = 0;
         bytes memory data = "";
@@ -391,7 +360,7 @@ contract TestRLP is DSTest {
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeBytes(input);
         //        assertEq(input, Lib_RLPReader.readBytes(Lib_RLPReader.toRLPItem(out)));
-        
+
     }
     function test_RLPWriterAddress(address input) public {
         // just here to fuck with memory a bit

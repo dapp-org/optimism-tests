@@ -3,5 +3,5 @@ let
   pkgs = import sources.dapptools {};
 in
   pkgs.mkShell {
-    buildInputs = with pkgs; [ dapp seth hevm niv ];
+    buildInputs = with pkgs; [ dapp seth hevm niv ethsign ];
   }
