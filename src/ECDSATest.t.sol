@@ -5,6 +5,7 @@ import { Lib_AddressResolver } from "../contracts-v2/contracts/optimistic-ethere
 import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
 import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
 import { Lib_RLPWriter } from "../contracts-v2/contracts/optimistic-ethereum/libraries/rlp/Lib_RLPWriter.sol";
+import { Lib_RLPReader } from "../contracts-v2/contracts/optimistic-ethereum/libraries/rlp/Lib_RLPReader.sol";
 import { Lib_ECDSAUtils } from "../contracts-v2/contracts/optimistic-ethereum/libraries/utils/Lib_ECDSAUtils.sol";
 import { Lib_SafeExecutionManagerWrapper } from "../contracts-v2/contracts/optimistic-ethereum/libraries/wrappers/Lib_SafeExecutionManagerWrapper.sol";
 
@@ -89,6 +90,7 @@ contract StateTransiti1onerTest is DSTest {
 
         stateMgr.setExecutionManager(address(executionMgr));
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
+    }
 
     function test_trivial_run_exe() public {
         executionMgr.run(
@@ -137,6 +139,14 @@ contract StateTransiti1onerTest is DSTest {
         );
     }
 
+    // get a users ETH_ERC20 balance on L2
+    function balanceOf(address usr) public returns (uint256) {
+        bytes32 val = stateMgr.getContractStorage(RELAYER_TOKEN_ADDRESS,
+                                                  keccak256(abi.encode(usr, 0))
+                                                  );
+        return uint(val);
+    }
+
     // demonstrates wrong chainid replaying
     // generate this tx by running `./sign 0x1`
     function testChainIdReplay() public {
@@ -171,23 +181,23 @@ contract StateTransiti1onerTest is DSTest {
         putAccountAt(ovmERC20Address, RELAYER_TOKEN_ADDRESS);
         bytes32 balanceVal = bytes32(uint(25000));
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
-        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, balanceVal);
-
-        // to do : getbalance helper function
-        // ovmload on execution manager
-        // use function to assert eq what we expect the post balance to be
-        // nice way to demonstrate the overflow and underslow effects
-
+        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
         // Set messageRecord.nuisanceGasLeft to 50000
         hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
 
+        // --- PRE STATE ----
+        // ovmCALLER is actually 0 here
+        assertEq(balanceOf(address(0)), 0);
+        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000);
+
         bytes32 exampleTxHash = keccak256(exampleTx);
 
-        // use it to set up an ECDSA for the signer
+        // set up an ECDSA Contract Account for the signer
         hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
         stateMgr.putEmptyAccount(to);
         stateMgr.testAndSetAccountChanged(to);
 
+        // This deploys an EOA at 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
         executionMgr.ovmCREATEEOA(
             exampleTxHash,
             1,
@@ -195,7 +205,6 @@ contract StateTransiti1onerTest is DSTest {
             0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
         );
 
-        // This deploys an EOA at 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
         executionMgr.ovmCALL(
             gasleft(),
             0xD521C744831cFa3ffe472d9F5F9398c9Ac806203,
@@ -208,6 +217,10 @@ contract StateTransiti1onerTest is DSTest {
                 0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
             )
         );
+
+        // --- POST STATE ---
+        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000 - gasLimit);
+        assertEq(balanceOf(address(0)), gasLimit);
     }
 
     // signing with 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
@@ -301,6 +314,7 @@ contract StateTransiti1onerTest is DSTest {
         stateMgr.commitAccount(l2);
         stateMgr.testAndSetAccountLoaded(l2);
     }
+}
 
 // It is not uncommon for calls to the RLPWriter to fail with a
 // division by zero error due to memory handling in assembly.
@@ -327,6 +341,8 @@ contract TestRLP is DSTest {
         // just here to fuck with memory a bit
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeBytes(input);
+        //        assertEq(input, Lib_RLPReader.readBytes(Lib_RLPReader.toRLPItem(out)));
+        
     }
     function test_RLPWriterAddress(address input) public {
         // just here to fuck with memory a bit
