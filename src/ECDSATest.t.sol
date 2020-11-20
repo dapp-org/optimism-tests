@@ -114,12 +114,6 @@ contract StateTransiti1onerTest is DSTest {
         );
     }
 
-    function testEOA(bytes memory a) public {
-        spinupEOA();
-        executionMgr.ovmCALL(gasleft(), 0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374, a);
-    }
-
-
     function test_create_contract() public {
         address target = address(new MakeEmpty());
         liftToL2(address(target));
@@ -139,16 +133,8 @@ contract StateTransiti1onerTest is DSTest {
         );
     }
 
-    // get a users ETH_ERC20 balance on L2
-    function balanceOf(address usr) public returns (uint256) {
-        bytes32 val = stateMgr.getContractStorage(RELAYER_TOKEN_ADDRESS,
-                                                  keccak256(abi.encode(usr, 0))
-                                                  );
-        return uint(val);
-    }
-
     // demonstrates wrong chainid replaying
-    // generate this tx by running `./sign 0x1`
+    // generate this tx by running `./sign 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203`
     function testChainIdReplay() public {
         // This tx has chainid = 1.
 
@@ -160,7 +146,6 @@ contract StateTransiti1onerTest is DSTest {
         uint256 value = 0;
         bytes memory data = "";
         uint256 chainId = 1;
-
         bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
             Lib_OVMCodec.EIP155Transaction(
                 nonce,
@@ -174,36 +159,79 @@ contract StateTransiti1onerTest is DSTest {
             false
         );
 
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
-        putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
-        stateMgr.hasAccount(0x4200000000000000000000000000000000000003);
-
-        putAccountAt(ovmERC20Address, RELAYER_TOKEN_ADDRESS);
         bytes32 balanceVal = bytes32(uint(25000));
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
         // Set messageRecord.nuisanceGasLeft to 50000
         hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
-
+        install_ETH_ERC20();
+        deployEOA();
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
         assertEq(balanceOf(address(0)), 0);
         assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000);
 
         bytes32 exampleTxHash = keccak256(exampleTx);
+        log_bytes32(exampleTxHash);
 
-        // set up an ECDSA Contract Account for the signer
-        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
-        stateMgr.putEmptyAccount(to);
-        stateMgr.testAndSetAccountChanged(to);
-
-        // This deploys an EOA at 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
-        executionMgr.ovmCREATEEOA(
-            exampleTxHash,
-            1,
-            0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
-            0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
+        executionMgr.ovmCALL(
+            gasleft(),
+            0xD521C744831cFa3ffe472d9F5F9398c9Ac806203,
+            abi.encodeWithSignature(
+                "execute(bytes,uint8,uint8,bytes32,bytes32)",
+                exampleTx,
+                0,
+                1,
+                0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
+                0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
+            )
         );
+
+        // --- POST STATE ---
+        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000 - gasLimit);
+        assertEq(balanceOf(address(0)), gasLimit);
+    }
+
+    // demonstrates wrong chainid replaying
+    // generate this tx by running `./sign 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203`
+    function testChainIdReplay() public {
+        // This tx has chainid = 1.
+
+        // struct EIP155Transaction
+        uint256 nonce = 1;
+        uint256 gasPrice = 1;
+        uint256 gasLimit = 0;
+        address to = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
+        uint256 value = 0;
+        bytes memory data = "";
+        uint256 chainId = 1;
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction(
+                nonce,
+                gasPrice,
+                gasLimit,
+                to, // same as signer
+                value,
+                data,
+                chainId
+            ),
+            false
+        );
+
+        bytes32 balanceVal = bytes32(uint(25000));
+        writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
+        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
+        // Set messageRecord.nuisanceGasLeft to 50000
+        hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
+        install_ETH_ERC20();
+        deployEOA();
+        // --- PRE STATE ----
+        // ovmCALLER is actually 0 here
+        assertEq(balanceOf(address(0)), 0);
+        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000);
+
+        bytes32 exampleTxHash = keccak256(exampleTx);
+        log_bytes32(exampleTxHash);
 
         executionMgr.ovmCALL(
             gasleft(),
@@ -281,18 +309,6 @@ contract StateTransiti1onerTest is DSTest {
         stateMgr.commitContractStorage(target, key);
     }
 
-    function spinupEOA() public {
-        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
-        stateMgr.putEmptyAccount(0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374);
-        stateMgr.testAndSetAccountChanged(0x3E17BDA2f18fB29756a6B82A48ec75Fe291C1374);
-        executionMgr.ovmCREATEEOA(
-            0x03ab237a027f9be39cae8f0b7ba5c0c5fb9ddaac373371c1283eb972cfbb5db1,
-            0,
-            0x581f1fa4a220851d3821909b68a38c9fed9094bb2830094d847ed4c8fb30b34d,
-            0x657f781894e53e78fb97f1edd6376c99fba7f86c7a674e48b7edc18222c1c3ea
-        );
-    }
-
     function liftToL2(address acc) public {
         putAccountAt(acc, acc);
     }
@@ -313,6 +329,39 @@ contract StateTransiti1onerTest is DSTest {
         );
         stateMgr.commitAccount(l2);
         stateMgr.testAndSetAccountLoaded(l2);
+    }
+
+        // get a users ETH_ERC20 balance on L2
+    function balanceOf(address usr) public returns (uint256) {
+        bytes32 val = stateMgr.getContractStorage(RELAYER_TOKEN_ADDRESS,
+                                                  keccak256(abi.encode(usr, 0))
+                                                  );
+        return uint(val);
+    }
+
+    function deployEOA() public {
+        // set up an ECDSA Contract Account for
+        // 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+        // set the state manager
+        hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
+        stateMgr.putEmptyAccount(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203);
+        stateMgr.testAndSetAccountChanged(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203);
+
+        // This deploys an EOA for 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+        executionMgr.ovmCREATEEOA(
+            hex"f68e124cdbcd40018f21427eb12da15dfc08546b777377ae578c969646fa98ba",
+            1,
+            0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
+            0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
+        );
+    }
+
+    function install_ETH_ERC20() public {
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
+        stateMgr.hasAccount(0x4200000000000000000000000000000000000003);
+
+        putAccountAt(ovmERC20Address, RELAYER_TOKEN_ADDRESS);
     }
 }
 
