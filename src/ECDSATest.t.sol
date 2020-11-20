@@ -48,6 +48,7 @@ contract StateTransiti1onerTest is DSTest {
     bytes32 constant internal KECCAK256_RLP_NULL_BYTES = keccak256(RLP_NULL_BYTES);
     bytes32 constant internal KECCAK256_NULL_BYTES = keccak256(NULL_BYTES);
     address constant RELAYER_TOKEN_ADDRESS = 0x4200000000000000000000000000000000000006;
+    address constant TEST_EOA = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
 
     Hevm hevm;
     Lib_AddressManager addressManager;
@@ -134,7 +135,7 @@ contract StateTransiti1onerTest is DSTest {
     }
 
     function test_upgrade_eoa() public {
-        address eoa = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
+        address eoa = TEST_EOA;
         address empty = address(new Empty());
         liftToL2(empty);
         stateMgr.putEmptyAccount(eoa);
@@ -165,13 +166,10 @@ contract StateTransiti1onerTest is DSTest {
     // generated with ./sign with the following modification:
     // TX=$(ethsign tx --to "$1" --from "$FROM" --chain-id 420 --gas-price 0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22  --passphrase-file optimistic --key-store secrets --nonce 1 --value 0 --gas-limit 20000)
     function testGasOverflow() public {
-        // This tx has chainid = 1.
-
-        // struct EIP155Transaction
         uint256 nonce = 1;
         uint256 gasPrice = 0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22;
         uint256 gasLimit = 20000;
-        address to = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
+        address to = TEST_EOA;
         uint256 value = 0;
         bytes memory data = "";
         uint256 chainId = 420;
@@ -198,14 +196,14 @@ contract StateTransiti1onerTest is DSTest {
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
         assertEq(balanceOf(address(0)), 0);
-        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000);
+        assertEq(balanceOf(TEST_EOA), 25000);
 
         bytes32 exampleTxHash = keccak256(exampleTx);
         log_bytes32(exampleTxHash);
 
         executionMgr.ovmCALL(
             gasleft(),
-            0xD521C744831cFa3ffe472d9F5F9398c9Ac806203,
+            TEST_EOA,
             abi.encodeWithSignature(
                 "execute(bytes,uint8,uint8,bytes32,bytes32)",
                 exampleTx,
@@ -217,11 +215,11 @@ contract StateTransiti1onerTest is DSTest {
         );
 
         // --- POST STATE ---
-        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000 - 64);
+        assertEq(balanceOf(TEST_EOA), 25000 - 64);
         assertEq(balanceOf(address(0)), 64);
     }
 
-    // signing with 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+    // signing with TEST_EOA
     function test_ecrecover() public {
         bytes memory signingData = Utils.encodeEIP155Transaction(
             Utils.EIP155Transaction({
@@ -242,7 +240,7 @@ contract StateTransiti1onerTest is DSTest {
             0xfdffd4d45e92e68a36922249174a93694e5b46f0a52b5ad74fb142557d574c0d,
             0x217bd0d055444a47fb074e23e04b1bf1171720bff70de0456c5127bcb7d26acc
         );
-        assertEq(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203, rec);
+        assertEq(TEST_EOA, rec);
     }
 
     // --- Utils ---
@@ -301,7 +299,7 @@ contract StateTransiti1onerTest is DSTest {
         stateMgr.testAndSetAccountLoaded(l2);
     }
 
-        // get a users ETH_ERC20 balance on L2
+    // get a users ETH_ERC20 balance on L2
     function balanceOf(address usr) public returns (uint256) {
         bytes32 val = stateMgr.getContractStorage(RELAYER_TOKEN_ADDRESS,
                                                   keccak256(abi.encode(usr, 0))
@@ -311,13 +309,13 @@ contract StateTransiti1onerTest is DSTest {
 
     function deployEOA() public {
         // set up an ECDSA Contract Account for
-        // 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+        // TEST_EOA
         // set the state manager
         hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
-        stateMgr.putEmptyAccount(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203);
-        stateMgr.testAndSetAccountChanged(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203);
+        stateMgr.putEmptyAccount(TEST_EOA);
+        stateMgr.testAndSetAccountChanged(TEST_EOA);
 
-        // This deploys an EOA for 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+        // This deploys an EOA for TEST_EOA
         executionMgr.ovmCREATEEOA(
             hex"f68e124cdbcd40018f21427eb12da15dfc08546b777377ae578c969646fa98ba",
             1,
