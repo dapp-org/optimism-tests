@@ -89,11 +89,6 @@ contract StateTransiti1onerTest is DSTest {
 
         stateMgr.setExecutionManager(address(executionMgr));
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
-    }
-
-    function test_trivial_erc20_setup() public {
-        putAccountAt(ovmERC20Address, RELAYER_TOKEN_ADDRESS);
-    }
 
     function test_trivial_run_exe() public {
         executionMgr.run(
@@ -306,7 +301,6 @@ contract StateTransiti1onerTest is DSTest {
         stateMgr.commitAccount(l2);
         stateMgr.testAndSetAccountLoaded(l2);
     }
-}
 
 // It is not uncommon for calls to the RLPWriter to fail with a
 // division by zero error due to memory handling in assembly.
