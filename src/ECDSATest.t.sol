@@ -419,9 +419,22 @@ contract TestRLP is DSTest {
         // just here to fuck with memory a bit
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeBytes(input);
-        //        assertEq(input, Lib_RLPReader.readBytes(Lib_RLPReader.toRLPItem(out)));
-
+        assertEq0(input, Lib_RLPReader.readBytes(Lib_RLPReader.toRLPItem(out)));
     }
+
+    // this test is failing!
+    function test_RLP_Roundtrip(bytes[] memory inputs) public {
+        bytes memory out = Lib_RLPWriter.writeList(inputs);
+        Lib_RLPReader.RLPItem[] memory elms = Lib_RLPReader.readList(Lib_RLPReader.toRLPItem(out));
+        bytes[] memory ins = new bytes[](elms.length);
+        for (uint i; i < elms.length; i++) {
+            ins[i] = Lib_RLPReader.readBytes(elms[i]);
+            logs(ins[i]);
+            logs(inputs[i]);
+            assertEq0(inputs[i], ins[i]);
+        }
+    }
+
     function test_RLPWriterAddress(address input) public {
         // just here to fuck with memory a bit
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
