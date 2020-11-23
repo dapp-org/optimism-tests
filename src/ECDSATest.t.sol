@@ -91,6 +91,8 @@ contract StateTransiti1onerTest is DSTest {
 
         stateMgr.setExecutionManager(address(executionMgr));
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
+
+        deployEOA();
     }
 
     function test_trivial_run_exe() public {
@@ -135,11 +137,8 @@ contract StateTransiti1onerTest is DSTest {
     }
 
     function test_upgrade_eoa() public {
-        address eoa = TEST_EOA;
         address empty = address(new Empty());
         liftToL2(empty);
-        stateMgr.putEmptyAccount(eoa);
-        deployEOA();
 
         executionMgr.run(
             Lib_OVMCodec.Transaction({
@@ -147,7 +146,7 @@ contract StateTransiti1onerTest is DSTest {
                 blockNumber:   block.number,
                 l1QueueOrigin: Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE,
                 l1TxOrigin:    address(this),
-                entrypoint:    eoa,
+                entrypoint:    TEST_EOA,
                 gasLimit:      100000000,
                 data:          abi.encodeWithSignature("upgrade(address)", empty)
             }),
@@ -155,7 +154,11 @@ contract StateTransiti1onerTest is DSTest {
         );
 
         hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
-        (bool res, bytes memory data) = executionMgr.ovmCALL(uint(-1), eoa, abi.encodeWithSignature("getImplementation"));
+        (bool res, bytes memory data) = executionMgr.ovmCALL(
+            uint(-1),
+            TEST_EOA,
+            abi.encodeWithSignature("getImplementation()")
+        );
         require(res, "cannot get impl");
         address impl = abi.decode(data, (address));
 
@@ -191,8 +194,6 @@ contract StateTransiti1onerTest is DSTest {
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
         // Set messageRecord.nuisanceGasLeft to 50000
         hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
-        install_ETH_ERC20();
-        deployEOA();
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
         assertEq(balanceOf(address(0)), 0);
@@ -250,8 +251,6 @@ contract StateTransiti1onerTest is DSTest {
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
         // Set messageRecord.nuisanceGasLeft to 50000
         hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
-        install_ETH_ERC20();
-        deployEOA();
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
         assertEq(balanceOf(address(0)), 0);
@@ -376,20 +375,20 @@ contract StateTransiti1onerTest is DSTest {
         stateMgr.putEmptyAccount(TEST_EOA);
         stateMgr.testAndSetAccountChanged(TEST_EOA);
 
-        // This deploys an EOA for TEST_EOA
+        // deploy EOA for TEST_EOA
         executionMgr.ovmCREATEEOA(
             hex"f68e124cdbcd40018f21427eb12da15dfc08546b777377ae578c969646fa98ba",
             1,
             0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
             0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
         );
-    }
 
-    function install_ETH_ERC20() public {
+        // install the implementation
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
         stateMgr.hasAccount(0x4200000000000000000000000000000000000003);
 
+        // install L2 WETH
         putAccountAt(ovmERC20Address, RELAYER_TOKEN_ADDRESS);
     }
 }
