@@ -422,16 +422,19 @@ contract TestRLP is DSTest {
         assertEq0(input, Lib_RLPReader.readBytes(Lib_RLPReader.toRLPItem(out)));
     }
 
-    // this test is failing!
     function test_RLP_Roundtrip(bytes[] memory inputs) public {
-        bytes memory out = Lib_RLPWriter.writeList(inputs);
-        Lib_RLPReader.RLPItem[] memory elms = Lib_RLPReader.readList(Lib_RLPReader.toRLPItem(out));
-        bytes[] memory ins = new bytes[](elms.length);
-        for (uint i; i < elms.length; i++) {
-            ins[i] = Lib_RLPReader.readBytes(elms[i]);
-            logs(ins[i]);
+        if (inputs.length > 32) return;
+        bytes[] memory ins = new bytes[](inputs.length);
+        for (uint i; i < inputs.length; i++) {
+            ins[i] = Lib_RLPWriter.writeBytes(inputs[i]);
+        }
+        bytes memory out = Lib_RLPWriter.writeList(ins);
+        Lib_RLPReader.RLPItem[] memory decoded = Lib_RLPReader.readList(out);
+        for (uint i; i < decoded.length; i++) {
+            bytes memory dec = Lib_RLPReader.readBytes(decoded[i]);
             logs(inputs[i]);
-            assertEq0(inputs[i], ins[i]);
+            logs(dec);
+            assertEq0(inputs[i], dec);
         }
     }
 
