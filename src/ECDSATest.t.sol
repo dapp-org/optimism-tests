@@ -363,7 +363,6 @@ contract StateTransiti1onerTest is DSTest {
 
     function putAccountAt(address l1, address l2) public {
         bytes32 codeHash; assembly { codeHash := extcodehash(l1) }
-        log_named_bytes32("codehash", codeHash);
         stateMgr.putAccount(
             l2,
             Lib_OVMCodec.Account({
