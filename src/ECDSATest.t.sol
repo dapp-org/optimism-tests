@@ -212,13 +212,16 @@ contract StateTransiti1onerTest is DSTest {
             false
         );
 
+        // --- grant the sender some balance ---
         bytes32 balanceVal = bytes32(uint(25000));
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
+
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
         assertEq(balanceOf(address(0)), 0);
         assertEq(balanceOf(TEST_EOA), 25000);
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
 
         bytes32 exampleTxHash = keccak256(exampleTx);
         log_bytes32(exampleTxHash);
@@ -237,9 +240,64 @@ contract StateTransiti1onerTest is DSTest {
         );
 
         // --- POST STATE ---
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 2);
         assertEq(balanceOf(TEST_EOA), 25000 - 64);
         assertEq(balanceOf(address(0)), 64);
     }
+
+    // demonstrates wrong chainid replaying
+    // generate this tx by running `./sign 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203`
+    function testChainIdReplay() public {
+        // This tx has chainid = 1.
+        uint256 nonce = 1;
+        uint256 gasPrice = 1;
+        uint256 gasLimit = 21000;
+        address to = 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203;
+        uint256 value = 0;
+        bytes memory data = "";
+        uint256 chainId = 1;
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction(
+                nonce,
+                gasPrice,
+                gasLimit,
+                to, // same as signer
+                value,
+                data,
+                chainId
+            ),
+            false
+        );
+
+        bytes32 balanceVal = bytes32(uint(25000));
+        writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
+        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
+
+        // --- PRE STATE ----
+        // ovmCALLER is actually 0 here
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
+        assertEq(balanceOf(address(0)), 0);
+        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000);
+
+        executionMgr.ovmCALL(
+            gasleft(),
+            0xD521C744831cFa3ffe472d9F5F9398c9Ac806203,
+            abi.encodeWithSignature(
+                "execute(bytes,uint8,uint8,bytes32,bytes32)",
+                exampleTx,
+                0,
+                1,
+                0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
+                0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
+            )
+        );
+
+        // --- POST STATE ---
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 2);
+        assertEq(balanceOf(0xD521C744831cFa3ffe472d9F5F9398c9Ac806203), 25000 - gasLimit);
+        assertEq(balanceOf(address(0)), gasLimit);
+    }
+
 
     // in ./sign
     // gasLimit 200
@@ -274,6 +332,7 @@ contract StateTransiti1onerTest is DSTest {
         hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
         assertEq(balanceOf(address(0)), 0);
         assertEq(balanceOf(TEST_EOA), 25000);
 
@@ -296,6 +355,7 @@ contract StateTransiti1onerTest is DSTest {
 
         // doesn't get here...yet?
         // --- POST STATE ---
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 2);
         assertEq(balanceOf(TEST_EOA), 25000);
         assertEq(balanceOf(address(0)), 0);
     }
