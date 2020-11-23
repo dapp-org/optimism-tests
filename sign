@@ -1,10 +1,15 @@
 #! /usr/bin/env bash
 
-set -e
-set -x
-# mkdir secrets
-# dapp --nix-run go-ethereum geth account new --keystore ./secrets --password optimistic
-read '-d ' -r FROM <<< "$(ethsign ls --key-store secrets)"
-TX=$(ethsign tx --to "$1" --from "$FROM" --chain-id 420 --gas-price 1 --passphrase-file optimistic --key-store secrets --nonce 0 --value 0 --gas-limit 0)
-# rm -rf secrets
-echo "$TX"
+set -euo pipefail
+
+: "${GAS_PRICE:=1}"
+: "${GAS_LIMIT:=1}"
+: "${CHAIN_ID:=420}"
+: "${NONCE:=1}"
+: "${VALUE:=1}"
+: "${DATA:=""}"
+FROM=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
+
+TX=$(ethsign tx --to "$TO" --from "$FROM" --chain-id "$CHAIN_ID" --gas-price "$GAS_PRICE" --passphrase-file optimistic --key-store secrets --nonce "$NONCE" --value "$VALUE" --gas-limit "$GAS_LIMIT" --data "$DATA")
+
+hevm rlp --decode "$TX"

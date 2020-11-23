@@ -159,9 +159,31 @@ contract StateTransiti1onerTest is DSTest {
         );
     }
 
+    // upgrades the EOA implementation
     function test_upgrade_eoa() public {
         address empty = address(new Empty());
         liftToL2(empty);
+
+        bytes memory upgradeBytecode = abi.encodeWithSignature("upgrade(address)", empty);
+
+        bytes memory txData = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction({
+                nonce:    1,
+                gasPrice: 100,
+                gasLimit: 543321,
+                to:       TEST_EOA,
+                value:    0,
+                data:     abi.encodeWithSignature("upgrade(address)", empty),
+                chainId:  420
+            }),
+            false
+        );
+
+        // signature generated with:
+        // NONCE=1 GAS_PRICE=100 GAS_LIMIT=543321 TO=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 DATA=0x0900f010000000000000000000000000196d2b8a346ab5d661e74a24840c24754df05d3b ./sign
+        uint8 v = 0;
+        bytes32 r = 0x52a20d3b5793cdc6c5d57c1d53f8732d9b22966804a8ff0b0d0ca8e8b4daa343;
+        bytes32 s = 0x327fb470d1eecbd8c2cb968fc7c5ca4d7cdb098345d759f39b34bae142295c92;
 
         executionMgr.run(
             Lib_OVMCodec.Transaction({
@@ -171,7 +193,14 @@ contract StateTransiti1onerTest is DSTest {
                 l1TxOrigin:    address(this),
                 entrypoint:    TEST_EOA,
                 gasLimit:      100000000,
-                data:          abi.encodeWithSignature("upgrade(address)", empty)
+                data:          abi.encodeWithSignature(
+                    "execute(bytes,uint8,uint8,bytes32,bytes32)",
+                    txData,
+                    Lib_OVMCodec.EOASignatureType(0),
+                    v,
+                    r,
+                    s
+                )
             }),
             address(stateMgr)
         );
@@ -600,6 +629,18 @@ library Utils {
         }
     }
 
+    function decodeSignature(bytes memory signature)
+        internal
+        pure
+        returns (uint8 v, bytes32 r, bytes32 s)
+    {
+        require(signature.length != 65, "invalid signature");
+        assembly {
+          v := byte(0, mload(add(signature, 0x60)))
+          r := mload(add(signature, 0x20))
+          s := mload(add(signature, 0x40))
+        }
+    }
 }
 
 
