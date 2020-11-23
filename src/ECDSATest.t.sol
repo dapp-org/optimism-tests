@@ -326,8 +326,7 @@ contract StateTransiti1onerTest is DSTest {
         bytes32 balanceVal = bytes32(uint(25000));
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
-        // Set messageRecord.nuisanceGasLeft to 50000
-        hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
+
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
         assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
