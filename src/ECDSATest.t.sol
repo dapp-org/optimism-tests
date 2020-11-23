@@ -92,11 +92,19 @@ contract StateTransiti1onerTest is DSTest {
         stateMgr.setExecutionManager(address(executionMgr));
         trans = new OVM_StateTransitioner(address(addressManager), 0, 0x0, 0x0);
 
+        // Set messageRecord.nuisanceGasLeft to 50000
+        hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
+
         // set up an ECDSA Contract Account for TEST_EOA
         // set the state manager
         hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
         stateMgr.putEmptyAccount(TEST_EOA);
         stateMgr.testAndSetAccountChanged(TEST_EOA);
+
+        // install the implementation
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
+        stateMgr.hasAccount(0x4200000000000000000000000000000000000003);
 
         // deploy EOA for TEST_EOA
         executionMgr.ovmCREATEEOA(
@@ -105,11 +113,6 @@ contract StateTransiti1onerTest is DSTest {
             0xdd6242c54e6400af0acbe5c9f6e88c6da7abdeb6148ef0ad1f58dc51eb5fb863,
             0x1a881c58541d6875cd797cc0b298481e10ed634c147b9b59c950de655cc15983
         );
-
-        // install the implementation
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
-        putAccountAt(address(implementation), 0x4200000000000000000000000000000000000003);
-        stateMgr.hasAccount(0x4200000000000000000000000000000000000003);
 
         // install L2 WETH
         putAccountAt(ovmERC20Address, RELAYER_TOKEN_ADDRESS);
@@ -212,8 +215,6 @@ contract StateTransiti1onerTest is DSTest {
         bytes32 balanceVal = bytes32(uint(25000));
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
         writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
-        // Set messageRecord.nuisanceGasLeft to 50000
-        hevm.store(address(executionMgr), bytes32(uint(17)), bytes32(uint(50000)));
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
         assertEq(balanceOf(address(0)), 0);
