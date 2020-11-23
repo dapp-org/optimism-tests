@@ -300,24 +300,22 @@ contract StateTransiti1onerTest is DSTest {
 
 
     // in ./sign
-    // gasLimit 200
-    // gasPrice 0
-    // to TEST_EOA
-    // TX=$(ethsign tx --to 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 --from "$FROM" --chain-id 420 --gas-price 0  --passphrase-file optimistic --key-store secrets --nonce 1 --value 0 --gas-limit 200)
+    // TX=$(ethsign tx --create --from "$FROM" --chain-id 420 --gas-price 200  --passphrase-file optimistic --key-store secrets --nonce 1 --value 0 --gas-limit 200 --data 0x00)
+    // this test allows a transfer but create will always use more than 200 gas (the gasLimit)
     function test_underflow_gascap() public {
         uint256 nonce = 1;
-        uint256 gasPrice = 0;
+        uint256 gasPrice = 200;
         uint256 gasLimit = 200;
-        address to = TEST_EOA;
+        address to = 0x0000000000000000000000000000000000000000;
         uint256 value = 0;
-        bytes memory data = "";
+        bytes memory data = hex"00";
         uint256 chainId = 420;
         bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
             Lib_OVMCodec.EIP155Transaction(
                 nonce,
                 gasPrice,
                 gasLimit,
-                to, // same as signer
+                to,
                 value,
                 data,
                 chainId
@@ -339,7 +337,9 @@ contract StateTransiti1onerTest is DSTest {
         bytes32 exampleTxHash = keccak256(exampleTx);
         log_bytes32(exampleTxHash);
 
-        // out of gas - which may be expected
+        // contract address being deployed
+        stateMgr.putEmptyAccount(0x76BB5602C9206F52ee65a09cf1Ba314d31B2aBE6);
+
         executionMgr.ovmCALL(
             gasleft(),
             TEST_EOA,
@@ -347,13 +347,12 @@ contract StateTransiti1onerTest is DSTest {
                 "execute(bytes,uint8,uint8,bytes32,bytes32)",
                 exampleTx,
                 0,
-                0,
-                0xafe7ffa0582f3e324e4f92a462a334fd9aa4dc23b56b71531259028dd6b479f3,
-                0x74caad2e5516f4f318fe56b15b68c070eb4b8c7c20e7ea1b0ab9a8f68629421b
+                1,
+                0x651988607b17d95473c1611de973844b10fe167a0b822c00aea485cd0a3e3602,
+                0x64df71c32cead3b85c7d0c6112ce011622b73d8d5d1f5aaa7c28f40a5d15002e
             )
         );
 
-        // doesn't get here...yet?
         // --- POST STATE ---
         assertEq(stateMgr.getAccountNonce(TEST_EOA), 2);
         assertEq(balanceOf(TEST_EOA), 25000);
