@@ -290,8 +290,8 @@ contract StateTransitionerTest is DSTest {
         assertEq(balanceOf(address(0)), 64);
     }
 
+    // NONCE=1 GAS_PRICE=1 GAS_LIMIT=21000 VALUE=0 CHAIN_ID=1 TO=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 ./sign
     // demonstrates wrong chainid replaying
-    // generate this tx by running `./sign 0xD521C744831cFa3ffe472d9F5F9398c9Ac806203`
     function testChainIdReplay() public {
         // This tx has chainid = 1.
         uint256 nonce = 1;
