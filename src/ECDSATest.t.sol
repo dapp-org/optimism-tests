@@ -41,7 +41,7 @@ interface Hevm {
     function store(address,bytes32,bytes32) external;
 }
 
-contract StateTransiti1onerTest is DSTest {
+contract StateTransitionerTest is DSTest {
     bytes constant internal RLP_NULL_BYTES = hex'80';
     bytes constant internal NULL_BYTES = bytes('');
     bytes32 constant internal NULL_BYTES32 = bytes32('');
@@ -234,9 +234,8 @@ contract StateTransiti1onerTest is DSTest {
         assertEq(impl, empty);
     }
 
+    // NONCE=1 GAS_PRICE=0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22 GAS_LIMIT=20000 VALUE=0 CHAIN_ID=420 TO=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 ./sign
     // demonstrates successful gas overflow in the ECDSAContractAccount
-    // generated with ./sign with the following modification:
-    // TX=$(ethsign tx --to "$1" --from "$FROM" --chain-id 420 --gas-price 0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22  --passphrase-file optimistic --key-store secrets --nonce 1 --value 0 --gas-limit 20000)
     function testGasOverflow() public {
         uint256 nonce = 1;
         uint256 gasPrice = 0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22;
@@ -344,9 +343,7 @@ contract StateTransiti1onerTest is DSTest {
         assertEq(balanceOf(address(0)), gasLimit);
     }
 
-
-    // in ./sign
-    // TX=$(ethsign tx --create --from "$FROM" --chain-id 420 --gas-price 200  --passphrase-file optimistic --key-store secrets --nonce 1 --value 0 --gas-limit 200 --data 0x00)
+    // NONCE=1 GAS_PRICE=200 GAS_LIMIT=200 VALUE=0 CHAIN_ID=420 CREATE=1 DATA=0x00 ./sign
     // this test allows a transfer but create will always use more than 200 gas (the gasLimit)
     function test_underflow_gascap() public {
         uint256 nonce = 1;

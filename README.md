@@ -1,5 +1,6 @@
 Run tests:
 
 ```
-./dapp.sh test
+nix-shell
+dapp test
 ```

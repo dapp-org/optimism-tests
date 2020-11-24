@@ -8,8 +8,13 @@ set -euo pipefail
 : "${NONCE:=1}"
 : "${VALUE:=1}"
 : "${DATA:=""}"
+: "${CREATE:=0}"
 FROM=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203
 
+if [[ $CREATE == 0 ]]; then
 TX=$(ethsign tx --to "$TO" --from "$FROM" --chain-id "$CHAIN_ID" --gas-price "$GAS_PRICE" --passphrase-file optimistic --key-store secrets --nonce "$NONCE" --value "$VALUE" --gas-limit "$GAS_LIMIT" --data "$DATA")
+else
+TX=$(ethsign tx --create --from "$FROM" --chain-id "$CHAIN_ID" --gas-price "$GAS_PRICE" --passphrase-file optimistic --key-store secrets --nonce "$NONCE" --value "$VALUE" --gas-limit "$GAS_LIMIT" --data "$DATA")
+fi
 
 hevm rlp --decode "$TX"
