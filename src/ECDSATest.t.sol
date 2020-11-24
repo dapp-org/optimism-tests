@@ -5,6 +5,8 @@ pragma experimental ABIEncoderV2;
 
 import { iOVM_ExecutionManager } from "../contracts-v2/contracts/optimistic-ethereum/iOVM/execution/iOVM_ExecutionManager.sol";
 import { Lib_AddressResolver } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressResolver.sol";
+import { Lib_Bytes32Utils } from "../contracts-v2/contracts/optimistic-ethereum/libraries/utils/Lib_Bytes32Utils.sol";
+import { Lib_BytesUtils } from "../contracts-v2/contracts/optimistic-ethereum/libraries/utils/Lib_BytesUtils.sol";
 import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereum/libraries/resolver/Lib_AddressManager.sol";
 import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
 import { Lib_RLPWriter } from "../contracts-v2/contracts/optimistic-ethereum/libraries/rlp/Lib_RLPWriter.sol";
@@ -579,6 +581,16 @@ contract TestRLP is DSTest {
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeBytes(input);
         assertEq0(input, Lib_RLPReader.readBytes(Lib_RLPReader.toRLPItem(out)));
+    }
+
+    function testAddressInverse(address x) public {
+        assertEq(x,  Lib_Bytes32Utils.toAddress(Lib_Bytes32Utils.fromAddress(x)));
+    }
+
+    function testSlice() public {
+        // just here to fuck with memory a bit
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        assertEq0(hex'',  Lib_BytesUtils.slice(hex'', 0, 0));
     }
 
     function test_RLP_Roundtrip(bytes[] memory inputs) public {
