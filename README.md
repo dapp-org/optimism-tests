@@ -9,7 +9,7 @@ a reproducible dev environment by running `nix-shell` from the repo root.
 From within the nix shell you can use
 [`dapp`](https://github.com/dapphub/dapptools/tree/master/src/dapp) to run the tests:
 
-```bash
+```
 dapp test  # run tests
 dapp debug # interactively debug a test
 ```
