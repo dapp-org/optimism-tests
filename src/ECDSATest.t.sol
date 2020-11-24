@@ -584,8 +584,9 @@ contract TestRLP is DSTest {
         assertEq0(input, Lib_RLPReader.readBytes(Lib_RLPReader.toRLPItem(out)));
     }
 
-    function testAddressInverse(address x) public {
-        assertEq(x,  Lib_Bytes32Utils.toAddress(Lib_Bytes32Utils.fromAddress(x)));
+    function testAddressInverse() public {
+      address addr = address(1);
+        assertEq(addr,  Lib_Bytes32Utils.toAddress(Lib_Bytes32Utils.fromAddress(addr)));
     }
 
     function testSlice() public {
