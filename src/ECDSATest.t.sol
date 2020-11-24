@@ -407,8 +407,135 @@ contract StateTransitionerTest is DSTest {
         assertEq(balanceOf(address(0)), gasLimit);
     }
 
+    // NONCE=1 GAS_PRICE=2 GAS_LIMIT=1000000 VALUE=0 CHAIN_ID=420 CREATE=1 DATA=0x00 ./sign
+    // test that shows revert in transfer when there isn't enough WETH to pay the relayer
+    // but that the contract is still deployed
+    function test_transfer_sad_path() public {
+        uint256 nonce = 1;
+        uint256 gasPrice = 2;
+        uint256 gasLimit = 1000000;
+        address to = 0x0000000000000000000000000000000000000000;
+        uint256 value = 0;
+        bytes memory data = hex"00";
+        uint256 chainId = 420;
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction(
+                nonce,
+                gasPrice,
+                gasLimit,
+                to,
+                value,
+                data,
+                chainId
+            ),
+            false
+        );
+
+        // transfer reverts because user has less than 
+        // gasPrice * gasLimit (fee to relayer calculation)
+        uint balanceVal = 1000000;
+        setBalance(TEST_EOA, balanceVal);
+        setBalance(address(0), 0);
+
+        // --- PRE STATE ----
+        // ovmCALLER is actually 0 here
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
+        assertEq(balanceOf(address(0)), 0);
+        assertEq(balanceOf(TEST_EOA), balanceVal);
+
+        bytes32 exampleTxHash = keccak256(exampleTx);
+        log_bytes32(exampleTxHash);
+
+        // contract address being deployed
+        stateMgr.putEmptyAccount(0x76BB5602C9206F52ee65a09cf1Ba314d31B2aBE6);
+        
+        uint initial = gasleft();
+        executionMgr.ovmCALL(
+            gasleft(),
+            TEST_EOA,
+            abi.encodeWithSignature(
+                "execute(bytes,uint8,uint8,bytes32,bytes32)",
+                exampleTx,
+                0,
+                1,
+                0x892d08d6eda6dc66a8f07019d40ba046ed44188d4fd1df51142afad8ff071501,
+                0x47a86e81eb60158edfed0662bfcadf0aac5187d5f0694f77afbe71ba561d99d0
+            )
+        );
+        uint spentGas = initial - gasleft();
+        log_named_uint("spentgas", spentGas);
+        log_named_uint("gaslimit", gasLimit);
+
+        // --- POST STATE ---
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 2);
+        // user still has original balance
+        assertEq(balanceOf(TEST_EOA), balanceVal);
+        assertEq(balanceOf(address(0)), 0);
+    }
+    
+    // NONCE=1 GAS_PRICE=2 GAS_LIMIT=1000000 VALUE=0 CHAIN_ID=420 CREATE=1 DATA=0x00 ./sign
+    function test_transfer_happy_path() public {
+        uint256 nonce = 1;
+        uint256 gasPrice = 2;
+        uint256 gasLimit = 1000000;
+        address to = 0x0000000000000000000000000000000000000000;
+        uint256 value = 0;
+        bytes memory data = hex"00";
+        uint256 chainId = 420;
+        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction(
+                nonce,
+                gasPrice,
+                gasLimit,
+                to,
+                value,
+                data,
+                chainId
+            ),
+            false
+        );
+
+        uint balanceVal = 5000000;
+        setBalance(TEST_EOA, balanceVal);
+        setBalance(address(0), 0);
+
+        // --- PRE STATE ----
+        // ovmCALLER is actually 0 here
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
+        assertEq(balanceOf(address(0)), 0);
+        assertEq(balanceOf(TEST_EOA), balanceVal);
+
+        bytes32 exampleTxHash = keccak256(exampleTx);
+        log_bytes32(exampleTxHash);
+
+        // contract address being deployed
+        stateMgr.putEmptyAccount(0x76BB5602C9206F52ee65a09cf1Ba314d31B2aBE6);
+        
+        uint initial = gasleft();
+        executionMgr.ovmCALL(
+            gasleft(),
+            TEST_EOA,
+            abi.encodeWithSignature(
+                "execute(bytes,uint8,uint8,bytes32,bytes32)",
+                exampleTx,
+                0,
+                1,
+                0x892d08d6eda6dc66a8f07019d40ba046ed44188d4fd1df51142afad8ff071501,
+                0x47a86e81eb60158edfed0662bfcadf0aac5187d5f0694f77afbe71ba561d99d0
+            )
+        );
+        uint spentGas = initial - gasleft();
+        log_named_uint("spentgas", spentGas);
+        log_named_uint("gaslimit", gasLimit);
+
+        // --- POST STATE ---
+        assertEq(stateMgr.getAccountNonce(TEST_EOA), 2);
+        assertEq(balanceOf(TEST_EOA), 3000000);
+        assertEq(balanceOf(address(0)), 2000000);
+    }
+
     // NONCE=1 GAS_PRICE=200 GAS_LIMIT=200 VALUE=0 CHAIN_ID=420 CREATE=1 DATA=0x00 ./sign
-    // this test allows a transfer but create will always use more than 200 gas (the gasLimit)
+    // allows contract deployment to succeed with low gasLimit
     function test_underflow_gascap() public {
         uint256 nonce = 1;
         uint256 gasPrice = 200;
@@ -430,7 +557,7 @@ contract StateTransitionerTest is DSTest {
             false
         );
 
-        uint balanceVal = 25000;
+        uint balanceVal = 40000;
         setBalance(TEST_EOA, balanceVal);
         setBalance(address(0), 0);
 
@@ -445,6 +572,7 @@ contract StateTransitionerTest is DSTest {
 
         // contract address being deployed
         stateMgr.putEmptyAccount(0x76BB5602C9206F52ee65a09cf1Ba314d31B2aBE6);
+        uint initial = gasleft();
 
         executionMgr.ovmCALL(
             gasleft(),
@@ -458,11 +586,14 @@ contract StateTransitionerTest is DSTest {
                 0x64df71c32cead3b85c7d0c6112ce011622b73d8d5d1f5aaa7c28f40a5d15002e
             )
         );
+        uint spentGas = initial - gasleft();
+        log_named_uint("spentgas", spentGas);
+        log_named_uint("gaslimit", gasLimit);
 
         // --- POST STATE ---
         assertEq(stateMgr.getAccountNonce(TEST_EOA), 2);
-        assertEq(balanceOf(TEST_EOA), 25000);
-        assertEq(balanceOf(address(0)), 0);
+        assertEq(balanceOf(TEST_EOA), 0);
+        assertEq(balanceOf(address(0)), 40000);
     }
 
     // signing with TEST_EOA
