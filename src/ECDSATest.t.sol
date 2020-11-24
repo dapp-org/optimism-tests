@@ -149,6 +149,7 @@ contract StateTransitionerTest is DSTest {
     function test_create_contract() public {
         address target = address(new MakeEmpty());
         liftToL2(address(target));
+        stateMgr.putEmptyAccount(0x42d454D12b11EdfB2e5cb8c90e6809a4E4925Ee5);
 
         executionMgr.run(
             Lib_OVMCodec.Transaction({
