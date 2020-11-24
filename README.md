@@ -1,6 +1,6 @@
 # Optimism ECDSAContractAccount Tests
 
-This repo contains the tests written as part of the [`dapp.org`](https://dapp.org) audit of the
+This repo contains the tests written as part of the [`dapp.org`](https://dapp.org.uk) audit of the
 OVM `ECDSAContractAccount` smart wallet.
 
 To run the tests you will need to [install nix](https://nixos.org/download.html), you can then enter
