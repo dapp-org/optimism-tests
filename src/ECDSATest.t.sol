@@ -164,9 +164,9 @@ contract StateTransiti1onerTest is DSTest {
         address empty = address(new Empty());
         liftToL2(empty);
 
-        bytes memory upgradeBytecode = abi.encodeWithSignature("upgrade(address)", empty);
+        // --- build tx ---
 
-        bytes memory txData = Lib_OVMCodec.encodeEIP155Transaction(
+        bytes memory wrappedTx = Lib_OVMCodec.encodeEIP155Transaction(
             Lib_OVMCodec.EIP155Transaction({
                 nonce:    1,
                 gasPrice: 100,
@@ -180,10 +180,25 @@ contract StateTransiti1onerTest is DSTest {
         );
 
         // signature generated with:
-        // NONCE=1 GAS_PRICE=100 GAS_LIMIT=543321 TO=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 DATA=0x0900f010000000000000000000000000196d2b8a346ab5d661e74a24840c24754df05d3b ./sign
+        // NONCE=1 GAS_PRICE=100 GAS_LIMIT=543321 VALUE=0 CHAIN_ID=420 TO=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 DATA=0x0900f010000000000000000000000000196d2b8a346ab5d661e74a24840c24754df05d3b ./sign
         uint8 v = 0;
-        bytes32 r = 0x52a20d3b5793cdc6c5d57c1d53f8732d9b22966804a8ff0b0d0ca8e8b4daa343;
-        bytes32 s = 0x327fb470d1eecbd8c2cb968fc7c5ca4d7cdb098345d759f39b34bae142295c92;
+        bytes32 r = 0xf26efebc963441c1333fa42df633bdd0a6a0cfa4d00b0e70986397ff8847a57f;
+        bytes32 s = 0x70d9e5db90c7e5af65f50868ef36159449a5542456647d206eebe68fb8dd7a6b;
+
+        bytes memory execData = abi.encodeWithSignature(
+            "execute(bytes,uint8,uint8,bytes32,bytes32)",
+            wrappedTx,
+            Lib_OVMCodec.EOASignatureType.EIP155_TRANSACTON,
+            v,
+            r,
+            s
+        );
+
+        // --- upgrade implementation ---
+
+        // grant some eth balances
+        setBalance(TEST_EOA, 25000);
+        setBalance(address(0), 0);
 
         executionMgr.run(
             Lib_OVMCodec.Transaction({
@@ -193,10 +208,10 @@ contract StateTransiti1onerTest is DSTest {
                 l1TxOrigin:    address(this),
                 entrypoint:    TEST_EOA,
                 gasLimit:      100000000,
-                data:          abi.encodeWithSignature(
+                data: abi.encodeWithSignature(
                     "execute(bytes,uint8,uint8,bytes32,bytes32)",
-                    txData,
-                    Lib_OVMCodec.EOASignatureType(0),
+                    wrappedTx,
+                    Lib_OVMCodec.EOASignatureType.EIP155_TRANSACTON,
                     v,
                     r,
                     s
@@ -204,6 +219,8 @@ contract StateTransiti1onerTest is DSTest {
             }),
             address(stateMgr)
         );
+
+        // --- check poststate ---
 
         hevm.store(address(executionMgr), bytes32(uint(2)), bytes32(uint(address(stateMgr))));
         (bool res, bytes memory data) = executionMgr.ovmCALL(
@@ -242,9 +259,9 @@ contract StateTransiti1onerTest is DSTest {
         );
 
         // --- grant the sender some balance ---
-        bytes32 balanceVal = bytes32(uint(25000));
-        writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
-        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
+        uint balanceVal = 25000;
+        setBalance(TEST_EOA, balanceVal);
+        setBalance(address(0), 0);
 
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
@@ -298,9 +315,9 @@ contract StateTransiti1onerTest is DSTest {
             false
         );
 
-        bytes32 balanceVal = bytes32(uint(25000));
-        writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
-        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
+        uint balanceVal = 25000;
+        setBalance(TEST_EOA, balanceVal);
+        setBalance(address(0), 0);
 
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
@@ -352,15 +369,15 @@ contract StateTransiti1onerTest is DSTest {
             false
         );
 
-        bytes32 balanceVal = bytes32(uint(25000));
-        writeStorage(RELAYER_TOKEN_ADDRESS, 0xb8382f520cd2a1c79d81a7bbfa002fe9522bb06f3ac162a0294c8c6a4c3e03f3, balanceVal);
-        writeStorage(RELAYER_TOKEN_ADDRESS, 0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5, 0);
+        uint balanceVal = 25000;
+        setBalance(TEST_EOA, balanceVal);
+        setBalance(address(0), 0);
 
         // --- PRE STATE ----
         // ovmCALLER is actually 0 here
         assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
         assertEq(balanceOf(address(0)), 0);
-        assertEq(balanceOf(TEST_EOA), 25000);
+        assertEq(balanceOf(TEST_EOA), balanceVal);
 
         bytes32 exampleTxHash = keccak256(exampleTx);
         log_bytes32(exampleTxHash);
@@ -389,8 +406,8 @@ contract StateTransiti1onerTest is DSTest {
 
     // signing with TEST_EOA
     function test_ecrecover() public {
-        bytes memory signingData = Utils.encodeEIP155Transaction(
-            Utils.EIP155Transaction({
+        bytes memory signingData = Lib_OVMCodec.encodeEIP155Transaction(
+            Lib_OVMCodec.EIP155Transaction({
                 nonce:    0,
                 gasPrice: 1,
                 gasLimit: 21000,
@@ -472,6 +489,10 @@ contract StateTransiti1onerTest is DSTest {
                                                   keccak256(abi.encode(usr, 0))
                                                   );
         return uint(val);
+    }
+
+    function setBalance(address usr, uint balance) internal {
+        writeStorage(RELAYER_TOKEN_ADDRESS, keccak256(abi.encode(usr, 0)), bytes32(balance));
     }
 }
 
@@ -565,85 +586,6 @@ contract Empty {
     constructor() payable {}
     fallback() external payable {}
 }
-
-library Utils {
-    struct EIP155Transaction {
-        uint256 nonce;
-        uint256 gasPrice;
-        uint256 gasLimit;
-        address to;
-        uint256 value;
-        bytes data;
-        uint256 chainId;
-    }
-
-    function decodeRevertData(
-        bytes memory revertdata
-    )
-        internal pure
-        returns (uint256 flag, uint256 nuisanceGasLeft, uint256 ovmGasRefund, bytes memory data)
-    {
-        if (revertdata.length == 0) {
-            return (0, 0, 0, bytes(''));
-        }
-        return abi.decode(revertdata, (uint256, uint256, uint256, bytes));
-    }
-
-    function encodeEIP155Transaction(
-        EIP155Transaction memory _transaction,
-        bool _isEthSignedMessage
-    )
-        internal
-        pure
-        returns (
-            bytes memory
-        )
-    {
-        if (_isEthSignedMessage) {
-            return abi.encode(
-                _transaction.nonce,
-                _transaction.gasLimit,
-                _transaction.gasPrice,
-                _transaction.chainId,
-                _transaction.to,
-                _transaction.data
-            );
-        } else {
-            bytes[] memory raw = new bytes[](9);
-
-            raw[0] = Lib_RLPWriter.writeUint(_transaction.nonce);
-            raw[1] = Lib_RLPWriter.writeUint(_transaction.gasPrice);
-            raw[2] = Lib_RLPWriter.writeUint(_transaction.gasLimit);
-            if (_transaction.to == address(0)) {
-                raw[3] = Lib_RLPWriter.writeBytes('');
-            } else {
-                raw[3] = Lib_RLPWriter.writeAddress(_transaction.to);
-            }
-            raw[4] = Lib_RLPWriter.writeUint(_transaction.value);
-            raw[5] = Lib_RLPWriter.writeBytes(_transaction.data);
-            raw[6] = Lib_RLPWriter.writeUint(_transaction.chainId);
-            raw[7] = Lib_RLPWriter.writeBytes(bytes(''));
-            raw[8] = Lib_RLPWriter.writeBytes(bytes(''));
-
-            return Lib_RLPWriter.writeList(raw);
-        }
-    }
-
-    function decodeSignature(bytes memory signature)
-        internal
-        pure
-        returns (uint8 v, bytes32 r, bytes32 s)
-    {
-        require(signature.length != 65, "invalid signature");
-        assembly {
-          v := byte(0, mload(add(signature, 0x60)))
-          r := mload(add(signature, 0x20))
-          s := mload(add(signature, 0x40))
-        }
-    }
-}
-
-
 
 
 // some loose ideas here... this might be junk.
