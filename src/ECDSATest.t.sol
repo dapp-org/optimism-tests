@@ -11,6 +11,7 @@ import { Lib_AddressManager } from "../contracts-v2/contracts/optimistic-ethereu
 import { Lib_OVMCodec } from "../contracts-v2/contracts/optimistic-ethereum/libraries/codec/Lib_OVMCodec.sol";
 import { Lib_RLPWriter } from "../contracts-v2/contracts/optimistic-ethereum/libraries/rlp/Lib_RLPWriter.sol";
 import { Lib_RLPReader } from "../contracts-v2/contracts/optimistic-ethereum/libraries/rlp/Lib_RLPReader.sol";
+import { Lib_BytesUtils } from "../contracts-v2/contracts/optimistic-ethereum/libraries/utils/Lib_BytesUtils.sol";
 import { Lib_ECDSAUtils } from "../contracts-v2/contracts/optimistic-ethereum/libraries/utils/Lib_ECDSAUtils.sol";
 import { Lib_SafeExecutionManagerWrapper } from "../contracts-v2/contracts/optimistic-ethereum/libraries/wrappers/Lib_SafeExecutionManagerWrapper.sol";
 
@@ -637,6 +638,53 @@ contract TestRLP is DSTest {
             ),
             tf
         );
+    }
+}
+
+contract TestBytesUtils is DSTest {
+    function setUp() public {
+    }
+
+    function test_concat_concrete() public {
+        test_concat(hex"1234", hex"5678");
+    }
+    function test_concat(bytes memory a, bytes memory b) public {
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        // you can actually just use `abi.encodePacked` to concat bytestrings...
+        uint startGas = gasleft();
+        bytes memory encPak = abi.encodePacked(a, b);
+        uint endGas = gasleft();
+        emit log_named_uint("gas for abi.encodePacked", startGas - endGas);
+
+        startGas = gasleft();
+        bytes memory custom = Lib_BytesUtils.concat(a, b);
+        endGas = gasleft();
+        emit log_named_uint("gas for custom built", startGas - endGas);
+        assertEq0(encPak, custom);
+    }
+
+    // gets stuck in an infinite loop and
+    // runs out of gas even with 12.5M gas given.
+    function test_slic_concrete() public {
+        bytes memory custom = Lib_BytesUtils.slice(hex"", 1);
+        logs(custom);
+    }
+
+    function test_slice(bytes calldata a, uint8 start) public {
+        if (start >= a.length) return;
+        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        // we now have slice technology in solidity
+        uint startGas = gasleft();
+        bytes memory custom = Lib_BytesUtils.slice(a, start);
+        uint endGas = gasleft();
+        emit log_named_uint("gas for custom built", startGas - endGas);
+
+        startGas = gasleft();
+        bytes memory encPak = abi.encodePacked(bytes(a[start:]));
+        endGas = gasleft();
+        emit log_named_uint("gas for abi.encodePacked", startGas - endGas);
+        assertEq0(encPak, custom);
+
     }
 }
 
