@@ -1,6 +1,15 @@
-Run tests:
+# Optimism ECDSAContractAccount Tests
 
-```
-nix-shell
-dapp test
+This repo contains the tests written as part of the [`dapp.org`](https://www.dapp.org) audit of the
+OVM `ECDSAContractAccount` smart wallet.
+
+To run the tests you will need to [install nix](https://nixos.org/download.html), you can then enter
+a reproducible dev environment by running `nix-shell` from the repo root.
+
+From within the nix shell you can use
+[`dapp`](https://github.com/dapphub/dapptools/tree/master/src/dapp) to run the tests:
+
+```bash
+dapp test  # run tests
+dapp debug # interactively debug a test
 ```
