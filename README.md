@@ -13,3 +13,6 @@ From within the nix shell you can use
 dapp test  # run tests
 dapp debug # interactively debug a test
 ```
+
+Tests demonstrating bugs are failing against the current implementation (`bb3539b`).
+Once all bugs have been corrected, this test suite should pass.
