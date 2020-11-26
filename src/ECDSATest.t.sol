@@ -747,6 +747,7 @@ contract TestRLP is DSTest {
         // just here to fuck with memory a bit
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeAddress(input);
+        assertEq(input, Lib_RLPReader.readAddress(out));
     }
     function test_RLPWriterString(string memory input) public {
         // just here to fuck with memory a bit
@@ -798,13 +799,16 @@ contract TestBytesUtils is DSTest {
 
     // gets stuck in an infinite loop and
     // runs out of gas even with 12.5M gas given.
-    function test_slic_concrete() public {
-        bytes memory custom = Lib_BytesUtils.slice(hex"", 1);
-        logs(custom);
+    function test_slice_concrete() public {
+        test_slice(hex"", 1);
     }
 
-    function test_slice(bytes calldata a, uint8 start) public {
-        if (start >= a.length) return;
+    function test_slice(bytes memory a, uint8 start) public {
+        (bool success, ) = address(this).call{gas: 12500000}(abi.encodeWithSignature("slice_with_gas(bytes,uint8)", a, start));
+        require(success);
+    }
+
+    function slice_with_gas(bytes calldata a, uint8 start) public {
         OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
         // we now have slice technology in solidity
         uint startGas = gasleft();
