@@ -231,7 +231,7 @@ contract StateTransitionerTest is DSTest {
         assertEq(impl, empty);
     }
 
-    function test_relayer_steals_tokens() public {
+    function testFail_relayer_steals_tokens() public {
         address counter = address(new Counter());
         liftToL2(counter);
 
@@ -300,7 +300,7 @@ contract StateTransitionerTest is DSTest {
 
     // NONCE=1 GAS_PRICE=0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22 GAS_LIMIT=20000 VALUE=0 CHAIN_ID=420 TO=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 ./sign
     // demonstrates successful gas overflow in the ECDSAContractAccount
-    function testGasOverflow() public {
+    function testFailGasOverflow() public {
         uint256 nonce = 1;
         uint256 gasPrice = 0x346dc5d63886594af4f0d844d013a92a305532617c1bda5119ce075f6fd22;
         uint256 gasLimit = 20000;
@@ -332,9 +332,6 @@ contract StateTransitionerTest is DSTest {
         assertEq(balanceOf(TEST_EOA), 25000);
         assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
 
-        bytes32 exampleTxHash = keccak256(exampleTx);
-        log_bytes32(exampleTxHash);
-
         executionMgr.ovmCALL(
             gasleft(),
             TEST_EOA,
@@ -356,7 +353,7 @@ contract StateTransitionerTest is DSTest {
 
     // demonstrates wrong chainid replaying
     // NONCE=1 GAS_PRICE=1 GAS_LIMIT=21000 VALUE=0 CHAIN_ID=1 TO=0xD521C744831cFa3ffe472d9F5F9398c9Ac806203 ./sign
-    function testChainIdReplay() public {
+    function testFailChainIdReplay() public {
         // This tx has chainid = 1.
         uint256 nonce = 1;
         uint256 gasPrice = 1;
@@ -410,7 +407,7 @@ contract StateTransitionerTest is DSTest {
     // NONCE=1 GAS_PRICE=2 GAS_LIMIT=1000000 VALUE=0 CHAIN_ID=420 CREATE=1 DATA=0x00 ./sign
     // test that shows revert in transfer when there isn't enough WETH to pay the relayer
     // but that the contract is still deployed
-    function test_transfer_sad_path() public {
+    function testFail_transfer_sad_path() public {
         uint256 nonce = 1;
         uint256 gasPrice = 2;
         uint256 gasLimit = 1000000;
@@ -442,9 +439,6 @@ contract StateTransitionerTest is DSTest {
         assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
         assertEq(balanceOf(address(0)), 0);
         assertEq(balanceOf(TEST_EOA), balanceVal);
-
-        bytes32 exampleTxHash = keccak256(exampleTx);
-        log_bytes32(exampleTxHash);
 
         // contract address being deployed
         stateMgr.putEmptyAccount(0x76BB5602C9206F52ee65a09cf1Ba314d31B2aBE6);
@@ -505,9 +499,6 @@ contract StateTransitionerTest is DSTest {
         assertEq(balanceOf(address(0)), 0);
         assertEq(balanceOf(TEST_EOA), balanceVal);
 
-        bytes32 exampleTxHash = keccak256(exampleTx);
-        log_bytes32(exampleTxHash);
-
         // contract address being deployed
         stateMgr.putEmptyAccount(0x76BB5602C9206F52ee65a09cf1Ba314d31B2aBE6);
         
@@ -536,7 +527,7 @@ contract StateTransitionerTest is DSTest {
 
     // NONCE=1 GAS_PRICE=200 GAS_LIMIT=200 VALUE=0 CHAIN_ID=420 CREATE=1 DATA=0x00 ./sign
     // allows contract deployment to succeed with low gasLimit
-    function test_underflow_gascap() public {
+    function testFail_underflow_gascap() public {
         uint256 nonce = 1;
         uint256 gasPrice = 200;
         uint256 gasLimit = 200;
@@ -566,9 +557,6 @@ contract StateTransitionerTest is DSTest {
         assertEq(stateMgr.getAccountNonce(TEST_EOA), 1);
         assertEq(balanceOf(address(0)), 0);
         assertEq(balanceOf(TEST_EOA), balanceVal);
-
-        bytes32 exampleTxHash = keccak256(exampleTx);
-        log_bytes32(exampleTxHash);
 
         // contract address being deployed
         stateMgr.putEmptyAccount(0x76BB5602C9206F52ee65a09cf1Ba314d31B2aBE6);
