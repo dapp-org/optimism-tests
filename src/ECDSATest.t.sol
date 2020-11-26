@@ -47,7 +47,7 @@ interface Hevm {
     function store(address,bytes32,bytes32) external;
 }
 
-contract StateTransitionerTest is DSTest {
+contract ECDSATest is DSTest {
     bytes constant internal RLP_NULL_BYTES = hex'80';
     bytes constant internal NULL_BYTES = bytes('');
     bytes32 constant internal NULL_BYTES32 = bytes32('');
@@ -136,13 +136,6 @@ contract StateTransitionerTest is DSTest {
                 data:          bytes("")
             }),
             address(stateMgr)
-        );
-    }
-
-    function test_decodeTx() public {
-        Lib_OVMCodec.decodeEIP155Transaction(
-            hex"f85f800180946888c043d3c793764a012b209e51ba766877f553808082036ca02a1f1c8ce0ccce461a8177117ff655ffd3e948dfecf4a27005ba0a74deab462da0347a6b843050f04ead7f8e7e46aaf29a1dde97dad0a3f42496df69b326f7e309",
-            false
         );
     }
 
@@ -664,7 +657,7 @@ contract StateTransitionerTest is DSTest {
     }
 
     // get a users ETH_ERC20 balance on L2
-    function balanceOf(address usr) public returns (uint256) {
+    function balanceOf(address usr) public view returns (uint256) {
         bytes32 val = stateMgr.getContractStorage(RELAYER_TOKEN_ADDRESS,
                                                   keccak256(abi.encode(usr, 0))
                                                   );
@@ -691,15 +684,15 @@ contract TestRLP is DSTest {
     // a couple of concrete examples:
     function testRLPWriterAddressConcrete() public {
         // just here to fuck with memory a bit
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
-        bytes memory outOne = Lib_RLPWriter.writeAddress(address(0));
-        bytes memory outTwo = Lib_RLPWriter.writeAddress(0x00000000000000000000000000000000000ffffE);
+        new OVM_ECDSAContractAccount();
+        Lib_RLPWriter.writeAddress(address(0));
+        Lib_RLPWriter.writeAddress(0x00000000000000000000000000000000000ffffE);
     }
 
     // Fuzz test; use these to discover tons of examples
     function test_RLPWriterBytes(bytes memory input) public {
         // just here to fuck with memory a bit
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeBytes(input);
         assertEq0(input, Lib_RLPReader.readBytes(Lib_RLPReader.toRLPItem(out)));
     }
@@ -711,7 +704,7 @@ contract TestRLP is DSTest {
 
     function testSlice() public {
         // just here to fuck with memory a bit
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        new OVM_ECDSAContractAccount();
         assertEq0(hex'',  Lib_BytesUtils.slice(hex'', 0, 0));
     }
 
@@ -733,22 +726,23 @@ contract TestRLP is DSTest {
 
     function test_RLPWriterAddress(address input) public {
         // just here to fuck with memory a bit
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeAddress(input);
         assertEq(input, Lib_RLPReader.readAddress(out));
     }
     function test_RLPWriterString(string memory input) public {
         // just here to fuck with memory a bit
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        new OVM_ECDSAContractAccount();
         bytes memory out = Lib_RLPWriter.writeString(input);
+        assertEq(input, Lib_RLPReader.readString(out));
     }
     function test_rand_RLPencodeEIP155(
         uint nonce, uint glimit, uint gprice, address to,
         uint val, bytes memory data, uint chainid, bool tf
     ) public {
         // just here to fuck with memory a bit
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
-        bytes memory exampleTx = Lib_OVMCodec.encodeEIP155Transaction(
+        new OVM_ECDSAContractAccount();
+        Lib_OVMCodec.encodeEIP155Transaction(
             Lib_OVMCodec.EIP155Transaction(
                 nonce,
                 glimit,
@@ -771,7 +765,7 @@ contract TestBytesUtils is DSTest {
         test_concat(hex"1234", hex"5678");
     }
     function test_concat(bytes memory a, bytes memory b) public {
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        new OVM_ECDSAContractAccount();
         // you can actually just use `abi.encodePacked` to concat bytestrings...
         uint startGas = gasleft();
         bytes memory encPak = abi.encodePacked(a, b);
@@ -797,7 +791,7 @@ contract TestBytesUtils is DSTest {
     }
 
     function slice_with_gas(bytes calldata a, uint8 start) public {
-        OVM_ECDSAContractAccount implementation = new OVM_ECDSAContractAccount();
+        new OVM_ECDSAContractAccount();
         // we now have slice technology in solidity
         uint startGas = gasleft();
         bytes memory custom = Lib_BytesUtils.slice(a, start);
